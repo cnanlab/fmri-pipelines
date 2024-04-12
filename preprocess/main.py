@@ -29,7 +29,9 @@ BASE_SUBJECTS_DIR = "/mnt/storage/SST/"
 
 # subject_directory_names = [name for name in os.listdir(base_subjects_dir) if name.startswith("sub-")]
 # Only for test subjects right now
-with open(opj(PIPELINE_BASE_DIR, "test_subjects.txt"), "r") as file:
+test_subjects_file = opj(PIPELINE_BASE_DIR, "subject_same_mri.txt")
+
+with open(test_subjects_file, "r") as file:
     subject_directory_names = [name.strip() for name in file.readlines()]
 
 # extract 'sub-' prefix from 'sub-{subj_id}'
@@ -255,7 +257,11 @@ preproc.config["execution"]["crashdump_dir"] = opj(preproc.config["execution"]["
 preproc.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")
 preproc.write_graph(graph2use="colored", format="png")
 
-s = input("Would you like to run the workflow? (Y/n)")
+# if '-y' argument is passed, run the workflow without asking for confirmation
+if "-y" in os.sys.argv:
+    s = "yes"
+else:
+    s = input("Would you like to run the workflow? (Y/n)")
 
 if not (s.lower() == "yes" or s.lower() == "y"):
     print("Exiting...")
