@@ -1,0 +1,18 @@
+/ContrastName1	corrGo 
+/ContrastName2	incorrGo 
+/ContrastName3	corrStop 
+/ContrastName4	incorrStop 
+/ContrastName5	corrStopvCorrGo 
+/ContrastName6	incorrStopvCorrGo 
+/NumWaves	4
+/NumContrasts	6
+/PPheights		4.000000e+00	4.000000e+00	4.000000e+00	4.000000e+00	0.000000e+00	0.000000e+00
+/RequiredEffect		2093763.250	2093763.250	2093763.250	2093763.250	-nan	-nan
+
+/Matrix
+1.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 
+0.000000e+00 1.000000e+00 0.000000e+00 0.000000e+00 
+0.000000e+00 0.000000e+00 1.000000e+00 0.000000e+00 
+0.000000e+00 0.000000e+00 0.000000e+00 1.000000e+00 
+-1.000000e+00 0.000000e+00 1.000000e+00 0.000000e+00 
+-1.000000e+00 0.000000e+00 0.000000e+00 1.000000e+00 
