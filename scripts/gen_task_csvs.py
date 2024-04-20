@@ -3,7 +3,7 @@ import pandas as pd
 
 base_subjects_path = "/mnt/storage/SST/"
 
-with open("../test_subjects.txt", "r") as file:
+with open("../subjects/test_anxiety_subjects.txt", "r") as file:
     subject_directory_names = ["sub-" + name.strip() for name in file.readlines()]
 
 print(subject_directory_names)
@@ -53,27 +53,29 @@ def create_custom_timing_files_sst(subject_id: str, session_name: str, run: int)
     
     return
 
+
+if __name__ == "__main__":
     
-first_subject = subject_directory_names[0]
+    first_subject = subject_directory_names[0]
 
-first_subject_id = first_subject[4:]
+    first_subject_id = first_subject[4:]
 
-print(f"First subject: {first_subject_id}")
+    print(f"First subject: {first_subject_id}")
 
-events_tsv = opj(base_subjects_path, first_subject, "ses-baselineYear1Arm1", "func", first_subject + "_ses-baselineYear1Arm1_task-sst_run-01_events.tsv")
+    events_tsv = opj(base_subjects_path, first_subject, "ses-baselineYear1Arm1", "func", first_subject + "_ses-baselineYear1Arm1_task-sst_run-01_events.tsv")
 
-# create corrGo.tsv, incorrGo.tsv, corrStop.tsv, incorrStop.tsv from events.tsv
+    # create corrGo.tsv, incorrGo.tsv, corrStop.tsv, incorrStop.tsv from events.tsv
 
-# remove first row (dummy)
-events_tsv_df = pd.read_csv(events_tsv, sep="\t")
+    # remove first row (dummy)
+    events_tsv_df = pd.read_csv(events_tsv, sep="\t")
 
-print("original events.tsv:")
-print(events_tsv_df.head())
-print()
-print("Unique trial types:")
-print(events_tsv_df["trial_type"].unique())
+    print("original events.tsv:")
+    print(events_tsv_df.head())
+    print()
+    print("Unique trial types:")
+    print(events_tsv_df["trial_type"].unique())
 
-create_custom_timing_files_sst(first_subject[4:], "baselineYear1Arm1", 1)
+    create_custom_timing_files_sst(first_subject[4:], "baselineYear1Arm1", 1)
 
 # # remove first row (dummy)
 # events_tsv_df = events_tsv_df.iloc[1:]

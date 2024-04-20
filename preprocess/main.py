@@ -18,28 +18,47 @@ fsl.FSLCommand.set_default_output_type('NIFTI_GZ')
 # subject_id_list = ['NDARINV00BD7VDC', 'NDARINV00CY2MDM', 'NDARINV00HEV6HB', 'NDARINV00LH735Y', 'NDARINV00R4TXET']
 print("FEAT preprocessing pipeline")
 
-PIPELINE_BASE_DIR = "/home/011/d/ds/dss210005/pipeline"
+PREPROCESS_DIR = os.path.dirname(os.path.realpath(__file__))
+
+PIPELINE_BASE_DIR = os.path.dirname(PREPROCESS_DIR)
+
+print("pipeline base dir:", PIPELINE_BASE_DIR)
 
 # base_design_fsf = input("Please enter the full path to the desired base design.fsf file:")
-# base_design_fsf = "/home/011/d/ds/dss210005/pipeline/preprocess/base_design.fsf"
-base_design_fsf = "/mnt/storage/SST/sub-NDARINVZT44Y065/ses-baselineYear1Arm1/func/test_based_off_ritesh.feat/design.fsf"
+# base_design_fsf = "/mnt/storage/SST/sub-NDARINVZT44Y065/ses-baselineYear1Arm1/func/test_based_off_ritesh.feat/design.fsf"
+base_design_fsf = opj(PREPROCESS_DIR, "base_design_ritesh.fsf")
     
 # base_subjects_dir = input("Please enter the base directory containing all of the subjects:")
 BASE_SUBJECTS_DIR = "/mnt/storage/SST/" 
 
 # subject_directory_names = [name for name in os.listdir(base_subjects_dir) if name.startswith("sub-")]
-# Only for test subjects right now
-test_subjects_file = opj(PIPELINE_BASE_DIR, "subject_same_mri.txt")
-
-with open(test_subjects_file, "r") as file:
-    subject_directory_names = [name.strip() for name in file.readlines()]
-
 # extract 'sub-' prefix from 'sub-{subj_id}'
-subject_id_list = [re.sub(r'^sub-', '', dir_name) for dir_name in subject_directory_names]
+# subject_id_list = [re.sub(r'^sub-', '', dir_name) for dir_name in subject_directory_names]
+
+# Only for test subjects right now
+subject_id_list = []
+
+original_fifty_subjects_path = opj(PIPELINE_BASE_DIR, "subjects", "subject_same_mri.txt")
+
+with open(original_fifty_subjects_path, "r") as file:
+    subject_id_list = [name.strip() for name in file.readlines()]
+    print(f"loaded {len(subject_id_list)} subjects from {original_fifty_subjects_path}")
+
+anx_test_subjects_path = opj(PIPELINE_BASE_DIR, "subjects", "pilot_anx_subjects.txt")
+
+with open(anx_test_subjects_path, "r") as file:
+    anx_subject_ids = [name.strip() for name in file.readlines()]        
+    print(f"loaded {len(anx_subject_ids)} subjects from {anx_test_subjects_path}")
+    
+    # only append unique subjects
+    for subj_id in anx_subject_ids:
+        if subj_id not in subject_id_list:
+            subject_id_list.append(subj_id)
 
 # subject_id_list = subject_id_list[:2]
 
 print("subject id list", subject_id_list)
+print("total number of unique subjects:", len(subject_id_list))
 # print(subject_id_list)
 
 # subject_id_list = ['NDARINV00BD7VDC', 'NDARINV00CY2MDM']
@@ -65,8 +84,8 @@ session_list = ["baselineYear1Arm1", "2YearFollowUpYArm1", "4YearFollowUpYArm1"]
 print("session list", session_list)
 
 experiment_dir = BASE_SUBJECTS_DIR
-datasink_dir = opj(PIPELINE_BASE_DIR, "preprocess", "datasink")
-working_dir = opj(PIPELINE_BASE_DIR, "preprocess", "workingdir")
+datasink_dir = opj(PREPROCESS_DIR, "datasink")
+working_dir = opj(PREPROCESS_DIR,  "workingdir")
 
 # preprocess base design.fsf file
 with open(base_design_fsf, "r") as file:
@@ -134,7 +153,7 @@ def create_design_fsf(subject_id: str, task: str, session: str, run: int, base_d
                               file_content)
         
     # create design FSF file for use by feat_node (NL = nonlinear if is_nonlinear is True)
-    new_design_fsf = f"sub-{subject_id}_ses-{session}_task-{task}_run-{run:02d}_design{"_NL" if is_nonlinear else ""}.fsf"            
+    new_design_fsf = f"sub-{subject_id}_ses-{session}_task-{task}_run-{run:02d}_design{'_NL' if is_nonlinear else ''}.fsf"            
     
     with open(new_design_fsf, "w") as file:
         file.write(file_content)
@@ -254,8 +273,10 @@ preproc.connect([(infosource, create_BET_paths_node, [('subject_id', 'subject_id
 # set crash directory
 preproc.config["execution"]["crashdump_dir"] = opj(preproc.config["execution"]["crashdump_dir"], working_dir, "crash")
 
-preproc.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")
+if "--exec-graph" in os.sys.argv:
+    preproc.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")
 preproc.write_graph(graph2use="colored", format="png")
+
 
 # if '-y' argument is passed, run the workflow without asking for confirmation
 if "-y" in os.sys.argv:

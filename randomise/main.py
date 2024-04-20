@@ -136,6 +136,21 @@ templates = {'zfstat': opj(
                          ),
             }
 
+all_possible_files = []
+for subject_id in subject_id_list:
+    for run in run_list:
+        for task in task_list:
+            for contrast in contrast_list:
+                for session in session_list:
+                    all_possible_files.append(templates['zfstat'].format(subject_id=subject_id, run=run, task_name=task, contrast_id=contrast, session_name=session))
+                    all_possible_files.append(templates['xfm'].format(subject_id=subject_id, run=run, task_name=task, contrast_id=contrast, session_name=session))
+                    all_possible_files.append(templates['zfstat_nonlinear'].format(subject_id=subject_id, run=run, task_name=task, contrast_id=contrast, session_name=session))
+                    all_possible_files.append(templates['xfm_nonlinear'].format(subject_id=subject_id, run=run, task_name=task, contrast_id=contrast, session_name=session))
+
+print(f"There are {len(all_possible_files)} possible files")
+
+existing_files = util.return_existing_files(all_possible_files)
+
 selectfiles = Node(SelectFiles(templates,
                                base_directory=base_feat_dir,
                                sort_filelist=True,
@@ -251,34 +266,37 @@ randomise_workflow = Workflow("randomise", working_dir)
 #                             (randomise, datasink, [("tstat_files", "randomise@tstat_files"),])])
 
 # using contrast_id as initial source
-randomise_workflow.connect([(contrast_info_source, run_node, [('contrast_id', 'contrast_id')]),
-                            (run_node, task_node, [('run', 'run'), ('contrast_id', 'contrast_id')]),
-                            (task_node, session_node, [('task_name', 'task_name'), 
-                                                       ('contrast_id', 'contrast_id'), 
-                                                       ('run', 'run')]),
-                            (session_node, subject_node, [('session_name', 'session_name'), 
-                                                          ('task_name', 'task_name'), 
-                                                          ('contrast_id', 'contrast_id'), 
-                                                          ('run', 'run')]),                            
-                            (subject_node, selectfiles, [('subject_id', 'subject_id'), 
-                                                         ('session_name', 'session_name'),
-                                                         ('task_name', 'task_name'), 
-                                                         ('contrast_id', 'contrast_id'), 
-                                                         ('run', 'run')]),
-                            (selectfiles, flirt, [('zfstat', 'in_file'), ('xfm', 'in_matrix_file')]),
-                            (selectfiles, fnirt, [('zfstat_nonlinear', 'in_file'), ('xfm_nonlinear', 'affine_file')]),                            
-                            (flirt, join_flirt, [('out_file', 'join_in')]),   
-                            (flirt, datasink, [('out_file', 'flirt')]),                         
-                            (fnirt, join_fnirt, [('warped_file', 'join_in')]),
-                            (fnirt, datasink, [('warped_file', 'fnirt')]),
-                            (join_flirt, merge_flirt, [('join_out', 'in_files')]),
-                            (join_fnirt, merge_fnirt, [('join_out', 'in_files')]),
-                            (merge_flirt, randomise_flirt, [('merged_file', 'in_file')]),
-                            (merge_fnirt, randomise_fnirt, [('merged_file', 'in_file')]),
-                            (randomise_flirt, datasink, [("tstat_files", "randomise@flirt@tstat_files")]),
-                            (randomise_fnirt, datasink, [("tstat_files", "randomise@fnirt@tstat_files")])
-                            ])
-                        
+# randomise_workflow.connect([(contrast_info_source, run_node, [('contrast_id', 'contrast_id')]),
+#                             (run_node, task_node, [('run', 'run'), ('contrast_id', 'contrast_id')]),
+#                             (task_node, session_node, [('task_name', 'task_name'), 
+#                                                        ('contrast_id', 'contrast_id'), 
+#                                                        ('run', 'run')]),
+#                             (session_node, subject_node, [('session_name', 'session_name'), 
+#                                                           ('task_name', 'task_name'), 
+#                                                           ('contrast_id', 'contrast_id'), 
+#                                                           ('run', 'run')]),                            
+#                             (subject_node, selectfiles, [('subject_id', 'subject_id'), 
+#                                                          ('session_name', 'session_name'),
+#                                                          ('task_name', 'task_name'), 
+#                                                          ('contrast_id', 'contrast_id'), 
+#                                                          ('run', 'run')]),
+#                             (selectfiles, flirt, [('zfstat', 'in_file'), ('xfm', 'in_matrix_file')]),
+#                             (selectfiles, fnirt, [('zfstat_nonlinear', 'in_file'), ('xfm_nonlinear', 'affine_file')]),                            
+#                             (flirt, join_flirt, [('out_file', 'join_in')]),   
+#                             (flirt, datasink, [('out_file', 'flirt')]),                         
+#                             (fnirt, join_fnirt, [('warped_file', 'join_in')]),
+#                             (fnirt, datasink, [('warped_file', 'fnirt')]),
+#                             (join_flirt, merge_flirt, [('join_out', 'in_files')]),
+#                             (join_fnirt, merge_fnirt, [('join_out', 'in_files')]),
+#                             (merge_flirt, randomise_flirt, [('merged_file', 'in_file')]),
+#                             (merge_fnirt, randomise_fnirt, [('merged_file', 'in_file')]),
+#                             (randomise_flirt, datasink, [("tstat_files", "randomise@flirt"),
+#                                                          ("t_corrected_p_files", "randomise@flirt")
+#                                                          ("t_p_files", "randomise@flirt")]),                                                    
+#                             (randomise_fnirt, datasink, [("tstat_files", "randomise@fnirt")
+#                                                          ("t_corrected_p_files", "randomise@fnirt")
+#                                                          ("t_p_files", "randomise@fnirt")])
+#                             ])
 
 randomise_workflow.write_graph(graph2use="colored", format="png", simple_form=True)
 # randomise_workflow.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")
