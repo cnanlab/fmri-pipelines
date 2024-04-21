@@ -234,7 +234,7 @@ create_design_fsf_node = Node(Function(input_names=["subject_id", "task", "run",
 # these inputs are here because function doesn't see global context
 create_design_fsf_node.inputs.base_design_fsf = new_base_design_fsf
 create_design_fsf_node.inputs.datasink_dir = datasink_dir
-
+    
 feat_node = Node(fsl.FEAT(), name="feat_node")
 
 preproc = Workflow("preproc_FEAT_workflow", working_dir)
