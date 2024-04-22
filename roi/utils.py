@@ -195,18 +195,18 @@ def dummy_fnirt(in_file: str, affine_file: str) -> str:
     """
     return in_file
 
-def custom_fnirt(in_file: str, affine_file: str) -> str:
-    """
-    Custom implementation of FNIRT.
-    """
-    import os
-    import fsl
+# def custom_fnirt(in_file: str, affine_file: str) -> str:
+#     """
+#     Custom implementation of FNIRT.
+#     """
+#     import os
+#     import fsl
     
-    # Create the output file name
-    out_file = os.path.join(os.path.dirname(in_file), f"warped_{os.path.basename(in_file)}")
+#     # Create the output file name
+#     out_file = os.path.join(os.path.dirname(in_file), f"warped_{os.path.basename(in_file)}")
     
-    # Run the FNIRT
-    fnirt = fsl.FNIRT(ref_file=in_file, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warp_resolution=10)
-    fnirt.run()
+#     # Run the FNIRT
+#     fnirt = fsl.FNIRT(ref_file=in_file, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warp_resolution=10)
+#     fnirt.run()
     
-    return out_file
+#     return out_file

@@ -31,6 +31,7 @@ first_join_node = JoinNode(Function(input_names=["dict"], output_names=["dict"],
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="zfstats_and_affines_itersource", joinfield=["joined_dicts"])
 
+make_csv_node = Node(Function(input_names=["flattened"], output_names=["save_path"], function=utils.make_csv_node_func), name="make_csv")
 
 datasink = Node(DataSink(base_directory=constants.ROI_BASE_DIR, container="datasink"), name="datasink")
 

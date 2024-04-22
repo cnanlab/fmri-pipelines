@@ -19,6 +19,6 @@ WORKING_DIR = opj(ROI_BASE_DIR, WORKING_DIR_NAME)
 
 MNI_TEMPLATE = '/usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz'
 
-INPUT_FEAT_DATASINK = "/mnt/storage/daniel/feat-preprocess-datasink/2024-04-21_23-16-00"
+INPUT_FEAT_DATASINK = "/mnt/storage/daniel/feat-preprocess-datasink/2024-04-21_23-16-00" if not IS_LAB_SERVER else "/home/danielsuh/mountdir/storage/daniel/feat-preprocess-datasink/2024-04-21_23-16-00"
 
 MASK_FILE_PATH = opj(ROI_BASE_DIR, "grantmask_labeled.nii")
