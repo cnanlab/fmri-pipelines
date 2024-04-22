@@ -25,13 +25,12 @@ dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_
 roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract")
 roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
-avg_node = Node(Function(input_names=['roi_values', "zfstat_path", "roi_num"], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
+avg_node = Node(Function(input_names=['roi_values', "zfstat_path", 'roi_num'], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
 
 first_join_node = JoinNode(Function(input_names=["dict"], output_names=["dict"], function=utils.join), name="first_join", joinsource="rois_itersource", joinfield=["dict"])
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="zfstats_and_affines_itersource", joinfield=["joined_dicts"])
 
-make_csv_node = Node(Function(input_names=["flattened"], output_names=["save_path"], function=utils.make_csv_node_func), name="make_csv")
 
 datasink = Node(DataSink(base_directory=constants.ROI_BASE_DIR, container="datasink"), name="datasink")
 

@@ -1,6 +1,20 @@
 import nilearn.image
 import constants
 
+def get_latest_feat_dir(feat_datasink: str) -> str:
+    """
+    Returns the latest FEAT directory from the FEAT datasink. Finds
+    the latest directory (where directory name is a datetime string) and returns it.
+    """
+    import os
+    
+    feat_dirs = os.listdir(feat_datasink)
+    
+    # ignore any directory with "feat"
+    dirs = [dir for dir in feat_dirs if "feat" not in dir]
+    
+    pass   
+
 def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str) -> list:
     """
     Returns all the zfstat paths from the feat datasink (directory with all FEAT runs).
@@ -65,6 +79,7 @@ def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
     
     # temp 
     roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    print(f"WARN: Using dummy roi values: {roi_values}")
     
     return roi_values, input_nifti, roi_num
 
