@@ -22,14 +22,16 @@ dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_
 
 # custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
 
-roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path"], function=utils.roi_extract_node_func), name="roi_extract")
+roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract")
 roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
-avg_node = Node(Function(input_names=['roi_values', "zfstat_path"], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
+avg_node = Node(Function(input_names=['roi_values', "zfstat_path", "roi_num"], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
 
 first_join_node = JoinNode(Function(input_names=["dict"], output_names=["dict"], function=utils.join), name="first_join", joinsource="rois_itersource", joinfield=["dict"])
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="zfstats_and_affines_itersource", joinfield=["joined_dicts"])
+
+make_csv_node = Node(Function(input_names=["flattened"], output_names=["save_path"], function=utils.make_csv_node_func), name="make_csv")
 
 datasink = Node(DataSink(base_directory=constants.ROI_BASE_DIR, container="datasink"), name="datasink")
 
@@ -65,7 +67,9 @@ if __name__ == "__main__":
     
     zfstats_and_affines_itersource.iterables = [("zfstat_path", zfstat_paths), ("affine_file", affine_files)]
     
-    # connect nodes
+    ###### Connect nodes
+    
+    # Use a 'dummy' fnirt node if the '--no-fnirt' argument is passed (for easier testing without fnirt)
     if not "--no-fnirt" in os.sys.argv: 
         roi_extract_workflow.connect([(zfstats_and_affines_itersource, fnirt_node, [("affine_file", "affine_file"),
                                                                                     ("zfstat_path", "in_file")]),
@@ -77,13 +81,15 @@ if __name__ == "__main__":
                                       (dummy_fnirt_node, roi_extract_node, [("warped_file", "input_nifti")]),
         ])
         
-    
+    # main connections
     roi_extract_workflow.connect([ (rois_itersource, roi_extract_node, [("roi_num", "roi_num")]),
                                     (roi_extract_node, avg_node, [("roi_values", "roi_values"),
-                                                                  ("zfstat_path", "zfstat_path")]),
+                                                                  ("zfstat_path", "zfstat_path"),
+                                                                  ("roi_num", "roi_num")]),
                                     (avg_node, first_join_node, [("dict", "dict")]), 
                                     (first_join_node, join_all_node, [("dict", "joined_dicts")]),
-                                    (join_all_node, datasink, [("flattened", "paths_and_avgs")])
+                                    (join_all_node, make_csv_node, [("flattened", "flattened")]),
+                                    (make_csv_node, datasink, [("save_path", "roi_csv")])
                                     ])    
                                  
     
@@ -94,7 +100,7 @@ if __name__ == "__main__":
     if "--exec-graph" or "--test" in os.sys.argv:
         roi_extract_workflow.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")    
     roi_extract_workflow.write_graph(graph2use="colored", format="png")
-
+    
 
     # if '-y' argument is passed, run the workflow without asking for confirmation
     if "-y" in os.sys.argv:

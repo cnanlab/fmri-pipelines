@@ -15,7 +15,8 @@ def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str) -> list:
             if os.path.exists(zfstat_path):
                 zfstat_paths.append(zfstat_path)
             else:
-                print(f"zfstat path {zfstat_path} does not exist")
+                # print(f"zfstat path {zfstat_path} does not exist")
+                pass
                 
     return zfstat_paths
 
@@ -32,7 +33,8 @@ def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
         if os.path.exists(affine_file):
             affine_files.append(affine_file)
         else:
-            print(f"affine file {affine_file} does not exist")
+            # print(f"affine file {affine_file} does not exist")
+            pass
             
     return affine_files
 
@@ -64,9 +66,9 @@ def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
     # temp 
     roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     
-    return roi_values, input_nifti
+    return roi_values, input_nifti, roi_num
 
-def average_roi_values_node_func(roi_values: list, zfstat_path: str):
+def average_roi_values_node_func(roi_values: list, zfstat_path: str, roi_num: int):
     """
     Averages the ROI values.
     """
@@ -76,7 +78,8 @@ def average_roi_values_node_func(roi_values: list, zfstat_path: str):
         
     return {
         "avg": avg,
-        "zfstat_path": zfstat_path
+        "zfstat_path": zfstat_path,
+        "roi_num": roi_num
     }
     
 
@@ -106,6 +109,70 @@ def join_main(joined_dicts: list):
             flattened.append(dict)                
     
     return flattened
+
+def make_csv_node_func(flattened: list):
+    """ Make a CSV file for the average ROI activations.
+    
+    Format of CSV:
+        roi, subid, image, run, activation
+        
+    Example Row:
+        1, NDARINV00CY2MDM, corGo, 1, 0.38347
+
+
+    Args:
+        flattened (list): list of { "avg": float, "zfstat_path": str, "roi_num": int }
+    """
+    import regex as re
+    import pandas as pd
+    import os
+    
+    # init dataframe with columns
+    rows = []
+    
+    for dict in flattened:
+        zfstat_path = dict["zfstat_path"]
+        roi_num = dict["roi_num"]
+        avg = dict["avg"]
+        
+        zfstat_num_to_image_name = {
+            1: "corGo",
+            2: "incGo",
+            3: "corStop",
+            4: "incStop",
+            5: "corStopvcorGo",
+            6: "incStopvcorGo"
+        }
+        
+        # use regex to extract subid, image, run from zfstat_path
+        subid_match = re.search(r"sub-(\w+)_", zfstat_path)
+        zfstat_num_match = re.search(r"zfstat(\d+).nii.gz", zfstat_path)
+        run_match = re.search(r"run-(\d+)", zfstat_path)
+        
+        subid = subid_match.group(1)
+        zfstat_num = int(zfstat_num_match.group(1))
+        image = zfstat_num_to_image_name[zfstat_num]
+        run = int(run_match.group(1))
+        
+        # add to rows
+        rows.append({
+            "roi": roi_num,
+            "subid": subid,
+            "image": image,
+            "run": run,
+            "activation": avg
+        })
+        
+    # create dataframe
+    df = pd.DataFrame(rows)
+        
+    # save dataframe to csv
+    save_path = os.path.join(os.getcwd(), "roi_activations.csv")
+    df.to_csv(save_path, index=False)
+    
+    return save_path           
+        
+    
 
 def dummy_fnirt(in_file: str, affine_file: str) -> str:
     """
