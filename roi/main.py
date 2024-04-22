@@ -3,51 +3,89 @@ import nipype.interfaces.fsl as fsl
 from nipype import Node, Workflow, MapNode, IdentityInterface, JoinNode
 from nipype.interfaces.utility import Function
 from nipype.interfaces.io import DataSink
-from preprocess.main import PIPELINE_BASE_DIR
 import utils
+import constants
 from os.path import join as opj
 
-ROI_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+zfstats_and_affines_itersource = Node(interface=IdentityInterface(fields=['zfstat_path', 'affine_file']),
+                  name="zfstats_and_affines_itersource")
+zfstats_and_affines_itersource.synchronize = True # To avoid all permutations of the two lists being run (zfstat_path and affine_file should be paired)
 
-PIPELINE_BASE_DIR = os.path.dirname(ROI_BASE_DIR)
+rois = range(1, 12) # 11 ROIs, numbered 1-11
 
-WORKING_DIR_NAME = "workingdir"
+rois_itersource = Node(interface=IdentityInterface(fields=['roi_num']), name="rois_itersource")
+rois_itersource.iterables = [("roi_num", rois)]
 
-WORKING_DIR = opj(ROI_BASE_DIR, WORKING_DIR_NAME)
+fnirt_node = Node(fsl.FNIRT(ref_file=constants.MNI_TEMPLATE, output_type='NIFTI_GZ'), name="fnirt")
 
-itersource_node = Node(interface=IdentityInterface(fields=['zfstat_path', 'affine_file']),
-                  name="itersource")
-itersource_node.synchronize = True # To avoid all permutations of the two lists being run
+dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_names=["warped_file"], function=utils.dummy_fnirt), name="dummy_fnirt")
 
-MNI_template = '/usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz'
+# custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
 
-fnirt_node = Node(fsl.FNIRT(ref_file=MNI_template, output_type='NIFTI_GZ'), name="fnirt")
+roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path"], function=utils.roi_extract_node_func), name="roi_extract")
+roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
-roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num'], output_names=["roi_values"], function=utils.roi_extract), name="roi_extract")
+avg_node = Node(Function(input_names=['roi_values', "zfstat_path"], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
 
-avg_node = Node(Function(input_names=['roi_values'], output_names=["avg"], function=utils.average_roi_values), name="avg")
+join_node = JoinNode(Function(input_names=["dict"], output_names=["output"], function=utils.join_and_format), name="join", joinsource="rois_itersource")
 
-join_node = JoinNode(Function(input_names=['roi_values', 'avg'], output_names=["output"], function=utils.join_and_format), name="join")
+datasink = Node(DataSink(base_directory=constants.ROI_BASE_DIR, container="datasink"), name="datasink")
 
 if __name__ == "__main__":
-    print(f"pipeline base dir: {PIPELINE_BASE_DIR}")
-    print(f"working dir: {WORKING_DIR}")
-    print(f"roi base dir: {ROI_BASE_DIR}")
+    print(f"pipeline base dir: {constants.PIPELINE_BASE_DIR}")
+    print(f"working dir: {constants.WORKING_DIR}")
+    print(f"roi base dir: {constants.ROI_BASE_DIR}")
     
-    roi_extract_workflow = Workflow(name="roi_extract_workflow", base_dir=ROI_BASE_DIR)
+    print(f"Using MNI template: {constants.MNI_TEMPLATE}")
+    
+    
+    roi_extract_workflow = Workflow(name="roi_extract_workflow", base_dir=constants.WORKING_DIR)
+    
+    # get zfstat paths and affine files
+    zfstat_paths = utils.get_all_zfstat_paths_from_feat_datasink(constants.INPUT_FEAT_DATASINK)        
+    affine_files = utils.get_all_affine_files_from_feat_datasink(constants.INPUT_FEAT_DATASINK)
+    
+    print(f"Found {len(zfstat_paths)} zfstat paths")    
+    total_num_feat_dirs = len(os.listdir(constants.INPUT_FEAT_DATASINK))
+    print(f"Total number of FEAT directories: {total_num_feat_dirs}")
+    print(f"Missing zfstat paths: {total_num_feat_dirs * 6 - len(zfstat_paths)}")
+    
+    ##########################################
+    # For testing, use only first few zfstat paths and affine files
+    ##########################################
+    if "--test" in os.sys.argv:
+        test_n = 1
+        zfstat_paths = zfstat_paths[:test_n]
+        affine_files = affine_files[:test_n]
+        print(f"Using only first {test_n} zfstat paths and affine files for testing")
+    
+    zfstats_and_affines_itersource.iterables = [("zfstat_path", zfstat_paths), ("affine_file", affine_files)]
     
     # connect nodes
-    roi_extract_workflow.connect([(itersource_node, fnirt_node, [("zfstat_path", "in_file")]),
-                                 (fnirt_node, roi_extract_node, [("out_file", "affine_file")]),
-                                 (roi_extract_node, avg_node, [("roi_values", "roi_values")]),
-                                 (roi_extract_node, join_node, [("roi_values", "roi_values")]),
-                                 (avg_node, join_node, [("avg", "avg")])])
+    if not "--no-fnirt" in os.sys.argv: 
+        roi_extract_workflow.connect([(zfstats_and_affines_itersource, fnirt_node, [("affine_file", "affine_file"),
+                                                                                    ("zfstat_path", "in_file")]),
+                                      (fnirt_node, roi_extract_node, [("warped_file", "input_nifti")]),
+        ])
+    else:
+        roi_extract_workflow.connect([(zfstats_and_affines_itersource, dummy_fnirt_node, [("affine_file", "affine_file"),
+                                                                                    ("zfstat_path", "in_file")]),
+                                      (dummy_fnirt_node, roi_extract_node, [("warped_file", "input_nifti")]),
+        ])
+        
+    
+    roi_extract_workflow.connect([ (rois_itersource, roi_extract_node, [("roi_num", "roi_num")]),
+                                    (roi_extract_node, avg_node, [("roi_values", "roi_values")]),
+                                    (avg_node, join_node, [("avg", "avg")]), 
+                                    (zfstats_and_affines_itersource, join_node, [("zfstat_path", "zfstat_path")]),                                   
+                                    ])    
+                                 
     
     # set crash directory
-    roi_extract_workflow.config["execution"]["crashdump_dir"] = opj(roi_extract_workflow.config["execution"]["crashdump_dir"], WORKING_DIR_NAME, "crash")
+    roi_extract_workflow.config["execution"]["crashdump_dir"] = opj(roi_extract_workflow.config["execution"]["crashdump_dir"], constants.WORKING_DIR_NAME, "crash")
 
     # write graphs 
-    if "--exec-graph" in os.sys.argv:
+    if "--exec-graph" or "--test" in os.sys.argv:
         roi_extract_workflow.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")    
     roi_extract_workflow.write_graph(graph2use="colored", format="png")
 

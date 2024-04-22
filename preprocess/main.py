@@ -84,7 +84,16 @@ session_list = ["baselineYear1Arm1", "2YearFollowUpYArm1", "4YearFollowUpYArm1"]
 print("session list", session_list)
 
 experiment_dir = BASE_SUBJECTS_DIR
-datasink_dir = opj(PREPROCESS_DIR, "datasink")
+# datasink_dir = opj(PREPROCESS_DIR, "datasink")
+date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+datasink_dir = f"/mnt/storage/daniel/feat-preprocess-datasink/{date_string}"
+
+# make sure datasink directory exists
+if not os.path.exists(datasink_dir):
+    os.makedirs(datasink_dir)
+
+print("datasink dir:", datasink_dir)
+
 working_dir = opj(PREPROCESS_DIR,  "workingdir")
 
 # preprocess base design.fsf file
