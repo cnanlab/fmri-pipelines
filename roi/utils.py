@@ -36,12 +36,8 @@ def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
             
     return affine_files
 
-def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str) -> list:
-    roi_values = roi_extract(input_nifti, roi_num, mask_file_path)
-    
-    return roi_values, input_nifti
 
-def roi_extract(input_nifti: str, roi_num: int, mask_file_path: str) -> list:
+def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
     """
     Extracts the ROI from the input nifti file.
     """
@@ -63,35 +59,53 @@ def roi_extract(input_nifti: str, roi_num: int, mask_file_path: str) -> list:
     print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")
     
     # Get the values of the ROI at the indices
-    roi_values = [data[tuple(index)] for index in roi_indices]        
+    # roi_values = [data[tuple(index)] for index in roi_indices]        
     
-    return roi_values
+    # temp 
+    roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    
+    return roi_values, input_nifti
 
 def average_roi_values_node_func(roi_values: list, zfstat_path: str):
-    avg = average_roi_values(roi_values)
-        
-    return {
-        "avg": avg,
-        "zfstat_path": zfstat_path
-    }
-
-def average_roi_values(roi_values: list) -> float:
     """
     Averages the ROI values.
     """
     import numpy as np
     
-    return np.mean(roi_values)
-
-def join_and_format(**kwargs):  
-    """
-    Joins the results and formats them.
-    """
-    print(kwargs)
-    import logging
+    avg = np.mean(roi_values)
+        
+    return {
+        "avg": avg,
+        "zfstat_path": zfstat_path
+    }
     
-    logger = logging.getLogger('nipype.workflow') 
-    return "placeholder"
+
+def join(dict: dict):  
+    """
+    First join function.
+    """    
+    # import logging
+    
+    # logger = logging.getLogger('nipype.workflow') 
+    
+    # print(kwargs)    
+    # for key, value in kwargs.items():
+    #     logger.info(f"{key}: {value}")
+    
+    return dict
+
+def join_main(joined_dicts: list):  
+    """
+    Joins and flattens the dictionaries (each dict has "avg" and "zfstat_path" keys)
+    """    
+    
+    flattened = []
+    
+    for array in joined_dicts:
+        for dict in array:
+            flattened.append(dict)                
+    
+    return flattened
 
 def dummy_fnirt(in_file: str, affine_file: str) -> str:
     """

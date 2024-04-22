@@ -27,7 +27,9 @@ roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
 avg_node = Node(Function(input_names=['roi_values', "zfstat_path"], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
 
-join_node = JoinNode(Function(input_names=["dict"], output_names=["output"], function=utils.join_and_format), name="join", joinsource="rois_itersource")
+first_join_node = JoinNode(Function(input_names=["dict"], output_names=["dict"], function=utils.join), name="first_join", joinsource="rois_itersource", joinfield=["dict"])
+
+join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="zfstats_and_affines_itersource", joinfield=["joined_dicts"])
 
 datasink = Node(DataSink(base_directory=constants.ROI_BASE_DIR, container="datasink"), name="datasink")
 
@@ -54,10 +56,12 @@ if __name__ == "__main__":
     # For testing, use only first few zfstat paths and affine files
     ##########################################
     if "--test" in os.sys.argv:
-        test_n = 1
+        test_n = 3
         zfstat_paths = zfstat_paths[:test_n]
         affine_files = affine_files[:test_n]
         print(f"Using only first {test_n} zfstat paths and affine files for testing")
+        if test_n < 10:
+            print(f"zfstat_paths: {zfstat_paths}")
     
     zfstats_and_affines_itersource.iterables = [("zfstat_path", zfstat_paths), ("affine_file", affine_files)]
     
@@ -75,9 +79,11 @@ if __name__ == "__main__":
         
     
     roi_extract_workflow.connect([ (rois_itersource, roi_extract_node, [("roi_num", "roi_num")]),
-                                    (roi_extract_node, avg_node, [("roi_values", "roi_values")]),
-                                    (avg_node, join_node, [("avg", "avg")]), 
-                                    (zfstats_and_affines_itersource, join_node, [("zfstat_path", "zfstat_path")]),                                   
+                                    (roi_extract_node, avg_node, [("roi_values", "roi_values"),
+                                                                  ("zfstat_path", "zfstat_path")]),
+                                    (avg_node, first_join_node, [("dict", "dict")]), 
+                                    (first_join_node, join_all_node, [("dict", "joined_dicts")]),
+                                    (join_all_node, datasink, [("flattened", "paths_and_avgs")])
                                     ])    
                                  
     
