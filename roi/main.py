@@ -22,12 +22,19 @@ dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_
 
 # custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
 
-roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract")
-roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
+# roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract", overwrite=True)
+# roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
-avg_node = Node(Function(input_names=['roi_values', "zfstat_path", 'roi_num'], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
+# avg_node = Node(Function(input_names=['roi_values', "zfstat_path", 'roi_num'], output_names=["dict"], function=utils.average_roi_values_node_func), name="avg")
 
-first_join_node = JoinNode(Function(input_names=["dict"], output_names=["dict"], function=utils.join), name="first_join", joinsource="rois_itersource", joinfield=["dict"])
+# first_join_node = JoinNode(Function(input_names=["dict"], output_names=["dict"], function=utils.join), name="first_join", joinsource="rois_itersource", joinfield=["dict"])
+
+roi_extract_overwrite = False
+
+roi_extract_all_node = Node(Function(input_names=['input_nifti', 'mask_file_path'], output_names=["roi_dicts"], function=utils.roi_extract_all_node_func), name="roi_extract_all", overwrite=roi_extract_overwrite)
+roi_extract_all_node.inputs.mask_file_path = constants.MASK_FILE_PATH
+
+avg_all_node = Node(Function(input_names=['roi_dicts'], output_names=["avg_dicts"], function=utils.average_each_roi_values_node_func), name="avg_all")
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="zfstats_and_affines_itersource", joinfield=["joined_dicts"])
 
@@ -36,14 +43,20 @@ make_csv_node = Node(Function(input_names=["flattened"], output_names=["save_pat
 datasink = Node(DataSink(base_directory=constants.ROI_BASE_DIR, container="datasink"), name="datasink")
 
 if __name__ == "__main__":
-    print(f"pipeline base dir: {constants.PIPELINE_BASE_DIR}")
-    print(f"working dir: {constants.WORKING_DIR}")
-    print(f"roi base dir: {constants.ROI_BASE_DIR}")
-    
+    print(f"pipeline base dir: {constants.PIPELINE_BASE_DIR}")    
+    print(f"roi base dir: {constants.ROI_BASE_DIR}")    
     print(f"Using MNI template: {constants.MNI_TEMPLATE}")
+    print(f"input feat datasink: {constants.INPUT_FEAT_DATASINK}")
+    print(f"mask file path: {constants.MASK_FILE_PATH}")
+    print(f"roi_extract_overwrite: {roi_extract_overwrite}")
     
+    is_test_run = "--test" in os.sys.argv
     
-    roi_extract_workflow = Workflow(name="roi_extract_workflow", base_dir=constants.WORKING_DIR)
+    workingdir = constants.WORKING_DIR if not is_test_run else opj(constants.ROI_BASE_DIR, "testworkingdir")
+    
+    print(f"working dir: {workingdir}")
+    
+    roi_extract_workflow = Workflow(name="roi_extract_workflow", base_dir=workingdir)
     
     # get zfstat paths and affine files
     zfstat_paths = utils.get_all_zfstat_paths_from_feat_datasink(constants.INPUT_FEAT_DATASINK)        
@@ -57,7 +70,7 @@ if __name__ == "__main__":
     ##########################################
     # For testing, use only first few zfstat paths and affine files
     ##########################################
-    if "--test" in os.sys.argv:
+    if is_test_run:
         test_n = 3
         zfstat_paths = zfstat_paths[:test_n]
         affine_files = affine_files[:test_n]
@@ -73,24 +86,20 @@ if __name__ == "__main__":
     if not "--no-fnirt" in os.sys.argv: 
         roi_extract_workflow.connect([(zfstats_and_affines_itersource, fnirt_node, [("affine_file", "affine_file"),
                                                                                     ("zfstat_path", "in_file")]),
-                                      (fnirt_node, roi_extract_node, [("warped_file", "input_nifti")]),
+                                      (fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
         ])
     else:
         roi_extract_workflow.connect([(zfstats_and_affines_itersource, dummy_fnirt_node, [("affine_file", "affine_file"),
                                                                                     ("zfstat_path", "in_file")]),
-                                      (dummy_fnirt_node, roi_extract_node, [("warped_file", "input_nifti")]),
+                                      (dummy_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
         ])
         
     # main connections
-    roi_extract_workflow.connect([ (rois_itersource, roi_extract_node, [("roi_num", "roi_num")]),
-                                    (roi_extract_node, avg_node, [("roi_values", "roi_values"),
-                                                                  ("zfstat_path", "zfstat_path"),
-                                                                  ("roi_num", "roi_num")]),
-                                    (avg_node, first_join_node, [("dict", "dict")]), 
-                                    (first_join_node, join_all_node, [("dict", "joined_dicts")]),
+    roi_extract_workflow.connect([(roi_extract_all_node, avg_all_node, [("roi_dicts", "roi_dicts")]),
+                                    (avg_all_node, join_all_node, [("avg_dicts", "joined_dicts")]),                                    
                                     (join_all_node, make_csv_node, [("flattened", "flattened")]),
-                                    (make_csv_node, datasink, [("save_path", "roi_csv")])
-                                    (fnirt_node, datasink, [("warped_file", "fnirt.@warped_file")]),
+                                    (make_csv_node, datasink, [("save_path", "roi_csv")]),
+                                    # (fnirt_node, datasink, [("warped_file", "fnirt.@warped_file")]),
                                     ])    
                                  
     
@@ -98,7 +107,7 @@ if __name__ == "__main__":
     roi_extract_workflow.config["execution"]["crashdump_dir"] = opj(roi_extract_workflow.config["execution"]["crashdump_dir"], constants.WORKING_DIR_NAME, "crash")
 
     # write graphs 
-    if "--exec-graph" or "--test" in os.sys.argv:
+    if "--exec-graph" in os.sys.argv or is_test_run:
         roi_extract_workflow.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")    
         
     roi_extract_workflow.write_graph(graph2use="colored", format="png")

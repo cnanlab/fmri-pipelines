@@ -53,6 +53,71 @@ def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
     return affine_files
 
 
+def roi_extract_all_node_func(input_nifti: str, mask_file_path: str):
+    """
+    Extracts all the ROIs from the input nifti file.
+    """
+    from nilearn.image import load_img
+    import numpy as np
+    import logging            
+    
+    # Load the nifti file
+    data = load_img(input_nifti).get_fdata()
+    
+    # Load the mask file
+    mask_data = load_img(mask_file_path).get_fdata()
+    
+    # roi_nums = np.unique(mask_data) <- ideal but slower
+    roi_nums = range(1, 12) # 11 ROIs, numbered 1-11 
+    
+    roi_dicts = []
+    
+    for roi_num in roi_nums:
+        # Get indices of the ROI
+        roi_indices = np.argwhere(mask_data == roi_num)    
+        
+        # remove indices if they are out of bounds
+        roi_indices = [index for index in roi_indices if all([i < data.shape[i] for i in range(3)])]        
+        print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")
+        
+        # Get the values of the ROI at the indices
+        roi_values = [data[tuple(index)] for index in roi_indices]        
+        
+        # temp
+        # roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # print(f"WARN: Using dummy roi values: {roi_values}")
+        
+        roi_dicts.append({
+            "roi_values": roi_values,
+            "zfstat_path": input_nifti,
+            "roi_num": roi_num
+        })
+        
+    return roi_dicts
+                        
+def average_each_roi_values_node_func(roi_dicts: list):
+    """
+    Averages the ROI values.
+    """
+    import numpy as np
+    
+    avg_dicts = []
+    
+    for dict in roi_dicts:
+        roi_values = dict["roi_values"]
+        zfstat_path = dict["zfstat_path"]
+        roi_num = dict["roi_num"]
+        
+        avg = np.mean(roi_values)
+        
+        avg_dicts.append({
+            "avg": avg,
+            "zfstat_path": zfstat_path,
+            "roi_num": roi_num
+        })
+        
+    return avg_dicts
+
 def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
     """
     Extracts the ROI from the input nifti file.
@@ -75,11 +140,11 @@ def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
     print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")
     
     # Get the values of the ROI at the indices
-    # roi_values = [data[tuple(index)] for index in roi_indices]        
+    roi_values = [data[tuple(index)] for index in roi_indices]        
     
-    # temp 
-    roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    print(f"WARN: Using dummy roi values: {roi_values}")
+    # # temp 
+    # roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    # print(f"WARN: Using dummy roi values: {roi_values}")
     
     return roi_values, input_nifti, roi_num
 
@@ -114,7 +179,7 @@ def join(dict: dict):
 
 def join_main(joined_dicts: list):  
     """
-    Joins and flattens the dictionaries (each dict has "avg" and "zfstat_path" keys)
+    Joins and flattens the dictionaries (each dict has "avg" and "zfstat_path" and "roi_num" keys)
     """    
     
     flattened = []
