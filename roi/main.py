@@ -90,6 +90,7 @@ if __name__ == "__main__":
                                     (first_join_node, join_all_node, [("dict", "joined_dicts")]),
                                     (join_all_node, make_csv_node, [("flattened", "flattened")]),
                                     (make_csv_node, datasink, [("save_path", "roi_csv")])
+                                    (fnirt_node, datasink, [("warped_file", "fnirt.@warped_file")]),
                                     ])    
                                  
     
@@ -99,6 +100,7 @@ if __name__ == "__main__":
     # write graphs 
     if "--exec-graph" or "--test" in os.sys.argv:
         roi_extract_workflow.write_graph(graph2use="exec", dotfilename="exec_graph.dot", format="png")    
+        
     roi_extract_workflow.write_graph(graph2use="colored", format="png")
     
 
@@ -112,4 +114,4 @@ if __name__ == "__main__":
         print("Exiting...")
         exit(0)
         
-    run = roi_extract_workflow.run(plugin="MultiProc", plugin_args={"n_procs": 32})
+    run = roi_extract_workflow.run(plugin="MultiProc", plugin_args={"n_procs": 64})
