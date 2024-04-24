@@ -53,7 +53,7 @@ def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
     return affine_files
 
 
-def roi_extract_all_node_func(input_nifti: str, mask_file_path: str):
+def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, subject_id: str, run: int, image_name: str):
     """
     Extracts all the ROIs from the input nifti file.
     """
@@ -90,7 +90,10 @@ def roi_extract_all_node_func(input_nifti: str, mask_file_path: str):
         roi_dicts.append({
             "roi_values": roi_values,
             "zfstat_path": input_nifti,
-            "roi_num": roi_num
+            "roi_num": roi_num,
+            "subject_id": subject_id,
+            "run": run,
+            "image_name": image_name
         })
         
     return roi_dicts
@@ -114,6 +117,10 @@ def average_each_roi_values_node_func(roi_dicts: list):
             "avg": avg,
             "zfstat_path": zfstat_path,
             "roi_num": roi_num
+            "subject_id": dict["subject_id"],
+            "run": dict["run"],
+            "image_name": dict["image_name"]
+            
         })
         
     return avg_dicts
@@ -201,50 +208,14 @@ def make_csv_node_func(flattened: list):
 
 
     Args:
-        flattened (list): list of { "avg": float, "zfstat_path": str, "roi_num": int }
+        flattened (list): list of { "avg": float, "zfstat_path": str, "roi_num": int, "subject_id": str, "run": int, "image_name": str }
     """
     import regex as re
     import pandas as pd
     import os
-    
-    # init dataframe with columns
-    rows = []
-    
-    for dict in flattened:
-        zfstat_path = dict["zfstat_path"]
-        roi_num = dict["roi_num"]
-        avg = dict["avg"]
-        
-        zfstat_num_to_image_name = {
-            1: "corGo",
-            2: "incGo",
-            3: "corStop",
-            4: "incStop",
-            5: "corStopvcorGo",
-            6: "incStopvcorGo"
-        }
-        
-        # use regex to extract subid, image, run from zfstat_path
-        subid_match = re.search(r"sub-(\w+)_", zfstat_path)
-        zfstat_num_match = re.search(r"zfstat(\d+).nii.gz", zfstat_path)
-        run_match = re.search(r"run-(\d+)", zfstat_path)
-        
-        subid = subid_match.group(1)
-        zfstat_num = int(zfstat_num_match.group(1))
-        image = zfstat_num_to_image_name[zfstat_num]
-        run = int(run_match.group(1))
-        
-        # add to rows
-        rows.append({
-            "roi": roi_num,
-            "subid": subid,
-            "image": image,
-            "run": run,
-            "activation": avg
-        })
         
     # create dataframe
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(flattened)
         
     # save dataframe to csv
     save_path = os.path.join(os.getcwd(), "roi_activations.csv")
@@ -252,26 +223,72 @@ def make_csv_node_func(flattened: list):
     
     return save_path           
         
-    
 
-def dummy_fnirt(in_file: str, affine_file: str) -> str:
+def dummy_fnirt(in_file: str, affine_file: str, mni_template: str) -> str:
     """
     Dummy implementation of FNIRT.
     """
-    return in_file
+    import os
+    
+    zfstat_path = in_file
+    
+    new_name = f"warped_{os.path.basename(in_file)}"
+    
+    new_path = os.path.join(os.path.dirname(in_file), new_name)
+    
+    return new_path
 
-# def custom_fnirt(in_file: str, affine_file: str) -> str:
-#     """
-#     Custom implementation of FNIRT.
-#     """
-#     import os
-#     import fsl
+def custom_fnirt(in_file: str, affine_file: str, mni_template: str) -> str:
+    """
+    Custom implementation of FNIRT.
+    """
+    import os    
+    from nipype.interfaces import fsl        
+        
+    # Run FNIRT
+    fnirt = fsl.FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_path)
+    fnirt.run()
     
-#     # Create the output file name
-#     out_file = os.path.join(os.path.dirname(in_file), f"warped_{os.path.basename(in_file)}")
+    return out_path
+
+def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
+    """
+    Returns the subject ID from the zfstat path.
+    """
+    import regex as re
     
-#     # Run the FNIRT
-#     fnirt = fsl.FNIRT(ref_file=in_file, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warp_resolution=10)
-#     fnirt.run()
+    subid_match = re.search(r"sub-([^_/]+)", zfstat_path)
+    subid = subid_match.group(1)
     
-#     return out_file
+    return subid
+
+def get_run_from_zfstat_path(zfstat_path: str) -> int:
+    """
+    Returns the run number from the zfstat path.
+    """
+    import regex as re
+    
+    run_match = re.search(r"run-(\d+)", zfstat_path)
+    run = int(run_match.group(1))
+    
+    return run
+
+def get_image_name_from_zfstat_path(zfstat_path: str) -> str:
+    """
+    Returns the image name from the zfstat path.
+    """
+    import regex as re
+    
+    zfstat_num_match = re.search(r"zfstat(\d+).nii.gz", zfstat_path)
+    zfstat_num = int(zfstat_num_match.group(1))
+    
+    zfstat_num_to_image_name = {
+        1: "corGo",
+        2: "incGo",
+        3: "corStop",
+        4: "incStop",
+        5: "corStopvcorGo",
+        6: "incStopvcorGo"
+    }
+    
+    return zfstat_num_to_image_name[zfstat_num]
