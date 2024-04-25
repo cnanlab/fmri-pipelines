@@ -53,7 +53,7 @@ def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
     return affine_files
 
 
-def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, subject_id: str, run: int, image_name: str):
+def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run=False):
     """
     Extracts all the ROIs from the input nifti file.
     """
@@ -78,23 +78,27 @@ def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, subject_id:
         
         # remove indices if they are out of bounds
         roi_indices = [index for index in roi_indices if all([i < data.shape[i] for i in range(3)])]        
-        print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")
+        print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")                                
+
+        roi_values = None
+
+        if is_test_run:        
+            # # temp 
+            roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            print(f"TEST_MODE: Using dummy roi values: {roi_values} for ROI number {roi_num}")            
+        else:
+            # Get the values of the ROI at the indices
+            roi_values = [data[tuple(index)] for index in roi_indices]                                
         
-        # Get the values of the ROI at the indices
-        roi_values = [data[tuple(index)] for index in roi_indices]        
-        
-        # temp
-        # roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        # print(f"WARN: Using dummy roi values: {roi_values}")
-        
-        roi_dicts.append({
+        roi_dict = {
             "roi_values": roi_values,
             "zfstat_path": input_nifti,
             "roi_num": roi_num,
-            "subject_id": subject_id,
-            "run": run,
-            "image_name": image_name
-        })
+        }
+        
+        # print(f"ROI {roi_num} dict: {roi_dict}")
+        
+        roi_dicts.append(roi_dict)
         
     return roi_dicts
                         
@@ -116,23 +120,19 @@ def average_each_roi_values_node_func(roi_dicts: list):
         avg_dicts.append({
             "avg": avg,
             "zfstat_path": zfstat_path,
-            "roi_num": roi_num
-            "subject_id": dict["subject_id"],
-            "run": dict["run"],
-            "image_name": dict["image_name"]
-            
+            "roi_num": roi_num                        
         })
         
     return avg_dicts
 
-def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
+def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str, is_test_run=False):
     """
     Extracts the ROI from the input nifti file.
     """
     from nilearn.image import load_img
     import numpy as np
     import logging
-    
+            
     # Load the nifti file
     data = load_img(input_nifti).get_fdata()
     
@@ -144,14 +144,10 @@ def roi_extract_node_func(input_nifti: str, roi_num: int, mask_file_path: str):
     
     # remove indices if they are out of bounds
     roi_indices = [index for index in roi_indices if all([i < data.shape[i] for i in range(3)])]        
-    print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")
+    print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")        
     
     # Get the values of the ROI at the indices
-    roi_values = [data[tuple(index)] for index in roi_indices]        
-    
-    # # temp 
-    # roi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    # print(f"WARN: Using dummy roi values: {roi_values}")
+    roi_values = [data[tuple(index)] for index in roi_indices]                
     
     return roi_values, input_nifti, roi_num
 
@@ -184,6 +180,21 @@ def join(dict: dict):
     
     return dict
 
+def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_name: str):
+    """
+    Adds metadata to the average ROI activations.
+    """
+    joined_dicts = []
+    
+    for dict in avg_dicts:        
+        dict["subject_id"] = subject_id
+        dict["run"] = run
+        dict["image_name"] = image_name
+        
+        joined_dicts.append(dict)
+        
+    return joined_dicts    
+
 def join_main(joined_dicts: list):  
     """
     Joins and flattens the dictionaries (each dict has "avg" and "zfstat_path" and "roi_num" keys)
@@ -214,6 +225,10 @@ def make_csv_node_func(flattened: list):
     import pandas as pd
     import os
         
+    # omit zfstat path
+    for dict in flattened:
+        del dict["zfstat_path"]
+        
     # create dataframe
     df = pd.DataFrame(flattened)
         
@@ -224,32 +239,36 @@ def make_csv_node_func(flattened: list):
     return save_path           
         
 
-def dummy_fnirt(in_file: str, affine_file: str, mni_template: str) -> str:
+def dummy_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: str, run:int, image_name: str) -> str:
     """
     Dummy implementation of FNIRT.
-    """
+    """    
     import os
     
-    zfstat_path = in_file
+    in_file_name = os.path.basename(in_file)
     
-    new_name = f"warped_{os.path.basename(in_file)}"
+    out_warped_name = f"sub-{subject_id}_run-{run}_{image_name}_NL_{in_file_name}"
     
-    new_path = os.path.join(os.path.dirname(in_file), new_name)
+    print(f"Dummy FNIRT: {in_file} -> {out_warped_name}")
     
-    return new_path
+    return in_file
 
-def custom_fnirt(in_file: str, affine_file: str, mni_template: str) -> str:
+def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: str, run: int, image_name:str) -> str:
     """
     Custom implementation of FNIRT.
     """
     import os    
-    from nipype.interfaces import fsl        
-        
+    from nipype.interfaces import fsl            
+    
+    in_file_name = os.path.basename(in_file)
+    
+    out_warped_name = f"sub-{subject_id}_run-{run}_{image_name}_NL_{in_file_name}"
+    
     # Run FNIRT
-    fnirt = fsl.FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_path)
+    fnirt = fsl.FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name)
     fnirt.run()
     
-    return out_path
+    return os.path.join(os.getcwd(), out_warped_name)
 
 def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
     """

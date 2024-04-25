@@ -3,3 +3,4 @@ __pycache__
 *workingdir
 log*
 .env
+*crash*
