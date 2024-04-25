@@ -278,7 +278,7 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     out_feat_path = os.path.join(os.path.dirname(in_file), out_warped_name)
     
     if os.path.exists(out_feat_path):
-        print(f"FNIRT: {in_file} -> {out_warped_name} already exists. Skipping.")
+        print(f"FNIRT_NODE: {in_file} -> {out_warped_name} already exists. Skipping.")
         return out_feat_path
     
     start_time = time.time()
