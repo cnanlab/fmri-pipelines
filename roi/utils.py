@@ -260,15 +260,30 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     import os    
     from nipype.interfaces import fsl            
     
-    in_file_name = os.path.basename(in_file)
+    # Ex: zfstat1.nii.gz
+    in_file_name = os.path.basename(in_file)    
     
-    out_warped_name = f"sub-{subject_id}_run-{run}_{image_name}_NL_{in_file_name}"
+    # Add "_NL" to the filename
+    # Ex: zfstat1_NL.nii.gz
+    out_warped_name = in_file_name.replace(".nii.gz", "_NL.nii.gz")
+    
+    new_out_path = os.path.join(os.path.dirname(in_file), out_warped_name)
+    
+    if os.path.exists(new_out_path):
+        print(f"FNIRT: {in_file} -> {out_warped_name} already exists. Skipping.")
+        return new_out_path
     
     # Run FNIRT
     fnirt = fsl.FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name)
     fnirt.run()
     
-    return os.path.join(os.getcwd(), out_warped_name)
+    out_fnirt_path = os.path.join(os.getcwd(), out_warped_name)
+    
+    # move the fnirt file to the location where the input file is (FEAT directory)
+    os.rename(out_fnirt_path, new_out_path)
+    
+    return new_out_path
+    
 
 def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
     """

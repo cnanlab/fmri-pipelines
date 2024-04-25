@@ -1,4 +1,5 @@
 import os
+import time
 import nipype.interfaces.fsl as fsl
 from nipype import Node, Workflow, MapNode, IdentityInterface, JoinNode
 from nipype.interfaces.utility import Function
@@ -154,4 +155,10 @@ if __name__ == "__main__":
         print("Exiting...")
         exit(0)
         
+    start_time = time.time()    
+    
     run = roi_extract_workflow.run(plugin="MultiProc", plugin_args={"n_procs": 64})
+    
+    end_time = time.time()
+    
+    print(f"Time taken: {end_time - start_time} seconds, or {(end_time - start_time) / 60} minutes, or {(end_time - start_time) / 3600} hours")
