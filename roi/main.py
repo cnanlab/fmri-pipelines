@@ -79,7 +79,7 @@ if __name__ == "__main__":
     print()
     print(f"Found {len(zfstat_paths)} zfstat paths")    
     total_num_feat_dirs = len(os.listdir(constants.INPUT_FEAT_DATASINK))
-    print(f"Total number of FEAT directories: {total_num_feat_dirs}")
+    print(f"Total number of NL FEAT directories: {total_num_feat_dirs}")
     print(f"Missing zfstat paths: {total_num_feat_dirs * 6 - len(zfstat_paths)}")
     
     ################################################################
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                                                                     ("run", "run"),
                                                                     ("image_name", "image_name")]),                                                                        
                                         (dummy_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
-                                        (dummy_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
+                                        # (dummy_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
         ])
     else:
         roi_extract_workflow.connect([(itersource, custom_fnirt_node, [("affine_file", "affine_file"),
@@ -120,7 +120,7 @@ if __name__ == "__main__":
                                                                     ("run", "run"),
                                                                     ("image_name", "image_name")]),                                                                        
                                         (custom_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
-                                        (custom_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
+                                        # (custom_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
         ])                   
         
     # main connections

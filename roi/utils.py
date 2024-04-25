@@ -15,7 +15,7 @@ def get_latest_feat_dir(feat_datasink: str) -> str:
     
     pass   
 
-def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str) -> list:
+def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = False) -> list:
     """
     Returns all the zfstat paths from the feat datasink (directory with all FEAT runs).
     """
@@ -24,12 +24,18 @@ def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str) -> list:
     zfstat_paths = []
     
     for feat_dir_name in os.listdir(feat_datasink):
+        # skip linear FEAT runs (LN)
+        if "LN" in feat_dir_name:                        
+            continue
+        
         for contrast_id in range(1, 7):
             zfstat_path = os.path.join(feat_datasink, feat_dir_name, "stats", f"zfstat{contrast_id}.nii.gz")
             if os.path.exists(zfstat_path):
-                zfstat_paths.append(zfstat_path)
+                zfstat_paths.append(zfstat_path)                
+                    
             else:
-                # print(f"zfstat path {zfstat_path} does not exist")
+                if verbose:
+                    print(f"WARN: zfstat path {zfstat_path} does not exist")
                 pass
                 
     return zfstat_paths
@@ -259,7 +265,8 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     """
     import os    
     from nipype.interfaces.fsl import FNIRT 
-    import time          
+    import time   
+    import shutil       
     
     # Ex: zfstat1.nii.gz
     in_file_name = os.path.basename(in_file)    
@@ -268,11 +275,11 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     # Ex: zfstat1_NL.nii.gz
     out_warped_name = in_file_name.replace(".nii.gz", "_NL.nii.gz")
     
-    new_out_path = os.path.join(os.path.dirname(in_file), out_warped_name)
+    out_feat_path = os.path.join(os.path.dirname(in_file), out_warped_name)
     
-    if os.path.exists(new_out_path):
+    if os.path.exists(out_feat_path):
         print(f"FNIRT: {in_file} -> {out_warped_name} already exists. Skipping.")
-        return new_out_path
+        return out_feat_path
     
     start_time = time.time()
     
@@ -282,14 +289,16 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     
     end_time = time.time()
     
-    print(f"FNIRT_NODE: {in_file} -> {out_warped_name} took {end_time - start_time} seconds, {end_time - start_time / 60} minutes.")
+    print(f"FNIRT_NODE: {in_file} -> {out_warped_name} took {end_time - start_time} seconds, {(end_time - start_time) / 60} minutes.")
     
     out_fnirt_path = os.path.join(os.getcwd(), out_warped_name)
     
-    # move the fnirt file to the location where the input file is (FEAT directory)
-    os.rename(out_fnirt_path, new_out_path)
+    # copy the fnirt file to the location where the input file is (FEAT directory)
+    shutil.copy(out_fnirt_path, out_feat_path)
     
-    return new_out_path
+    print(f"FNIRT_NODE: Copied {out_fnirt_path} to {out_feat_path}")
+    
+    return out_feat_path
     
 
 def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
