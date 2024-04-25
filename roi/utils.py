@@ -258,7 +258,8 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     Custom implementation of FNIRT.
     """
     import os    
-    from nipype.interfaces import fsl            
+    from nipype.interfaces.fsl import FNIRT 
+    import time          
     
     # Ex: zfstat1.nii.gz
     in_file_name = os.path.basename(in_file)    
@@ -273,9 +274,15 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
         print(f"FNIRT: {in_file} -> {out_warped_name} already exists. Skipping.")
         return new_out_path
     
+    start_time = time.time()
+    
     # Run FNIRT
-    fnirt = fsl.FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name)
+    fnirt = FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name)
     fnirt.run()
+    
+    end_time = time.time()
+    
+    print(f"FNIRT_NODE: {in_file} -> {out_warped_name} took {end_time - start_time} seconds, {end_time - start_time / 60} minutes.")
     
     out_fnirt_path = os.path.join(os.getcwd(), out_warped_name)
     
