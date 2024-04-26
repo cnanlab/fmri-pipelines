@@ -1,6 +1,6 @@
 __pycache__
 *datasink
 *workingdir
-log*
+*log*
 .env
 *crash*
