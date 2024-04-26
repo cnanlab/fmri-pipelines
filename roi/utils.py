@@ -15,13 +15,41 @@ def get_latest_feat_dir(feat_datasink: str) -> str:
     
     pass   
 
-def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = False) -> list:
+def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = False, nonlinear_register: bool = False) -> list:
     """
     Returns all the zfstat paths from the feat datasink (directory with all FEAT runs).
     """
     import os
     
     zfstat_paths = []
+    
+    for feat_dir_name in os.listdir(feat_datasink):
+        # skip linear FEAT runs (LN)
+        if "LN" in feat_dir_name:                        
+            continue
+        
+        for contrast_id in range(1, 7):
+            file_name = f"zfstat{contrast_id}.nii.gz" if not nonlinear_register else f"zfstat{contrast_id}_NL.nii.gz"
+            zfstat_path = os.path.join(feat_datasink, feat_dir_name, "stats", file_name)
+            if os.path.exists(zfstat_path):
+                zfstat_paths.append(zfstat_path)                
+                    
+            else:
+                if verbose:
+                    print(f"WARN: zfstat path {zfstat_path} does not exist")
+                pass
+                
+    return zfstat_paths
+
+
+def get_all_zfstat_paths_and_affine_files_from_feat_datasink(feat_datasink: str, verbose: bool = False) -> list:
+    """
+    Returns all the zfstat paths and affine files from the feat datasink (directory with all FEAT runs).
+    """
+    import os
+    
+    zfstat_paths = []
+    affine_files = []
     
     for feat_dir_name in os.listdir(feat_datasink):
         # skip linear FEAT runs (LN)
@@ -38,7 +66,15 @@ def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = 
                     print(f"WARN: zfstat path {zfstat_path} does not exist")
                 pass
                 
-    return zfstat_paths
+            affine_file = os.path.join(feat_datasink, feat_dir_name, "reg", "example_func2standard.mat")
+            if os.path.exists(affine_file):
+                affine_files.append(affine_file)
+            else:
+                if verbose:
+                    print(f"WARN: affine file {affine_file} does not exist")
+                pass
+                
+    return zfstat_paths, affine_files
 
 def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
     """
@@ -259,7 +295,7 @@ def dummy_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: s
     
     return in_file
 
-def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: str, run: int, image_name:str) -> str:
+def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: bool = False) -> str:
     """
     Custom implementation of FNIRT.
     """
@@ -277,7 +313,7 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     
     out_feat_path = os.path.join(os.path.dirname(in_file), out_warped_name)
     
-    if os.path.exists(out_feat_path):
+    if os.path.exists(out_feat_path) and not force_run:
         print(f"FNIRT_NODE: {in_file} -> {out_warped_name} already exists. Skipping.")
         return out_feat_path
     
@@ -299,7 +335,12 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: 
     print(f"FNIRT_NODE: Copied {out_fnirt_path} to {out_feat_path}")
     
     return out_feat_path
-    
+
+def flirt_wrapper():
+    """
+    Wrapper for FLIRT.
+    """
+    pass
 
 def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
     """
@@ -329,7 +370,7 @@ def get_image_name_from_zfstat_path(zfstat_path: str) -> str:
     """
     import regex as re
     
-    zfstat_num_match = re.search(r"zfstat(\d+).nii.gz", zfstat_path)
+    zfstat_num_match = re.search(r"zfstat(\d+).*.nii.gz", zfstat_path)
     zfstat_num = int(zfstat_num_match.group(1))
     
     zfstat_num_to_image_name = {
@@ -342,3 +383,14 @@ def get_image_name_from_zfstat_path(zfstat_path: str) -> str:
     }
     
     return zfstat_num_to_image_name[zfstat_num]
+
+def get_session_from_zfstat_path(zfstat_path: str) -> str:
+    """
+    Returns the session from the zfstat path.
+    """
+    import regex as re
+    
+    session_match = re.search(r"ses-([^_/]+)", zfstat_path)
+    session = session_match.group(1)
+    
+    return session

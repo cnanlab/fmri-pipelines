@@ -17,12 +17,14 @@ itersource.synchronize = True # To avoid all permutations of the lists being run
 # rois_itersource = Node(interface=IdentityInterface(fields=['roi_num']), name="rois_itersource")
 # rois_itersource.iterables = [("roi_num", rois)]
 
+custom_flirt_node = Node(Function(input_names=['in_file', 'in_matrix_file'], output_names=['out_file', ]), name="custom_flirt")
+
 dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'subject_id', 'run', 'image_name'], output_names=["warped_file"], function=utils.dummy_fnirt), name="dummy_fnirt")
 dummy_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE
 
 # fnirt_node = Node(fsl.FNIRT(ref_file=constants.MNI_TEMPLATE, output_type='NIFTI_GZ'), name="fnirt")
 
-custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'subject_id', 'run', 'image_name'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
+custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'force_run'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
 custom_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE
 
 # roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract", overwrite=True)
@@ -57,7 +59,13 @@ if __name__ == "__main__":
     print(f"roi_extract_overwrite: {roi_extract_overwrite}")
     print()
     
-    is_test_run = "--test" in os.sys.argv
+    is_test_run = "--test" in os.sys.argv        
+    
+    is_force_run_fnirt = "--force-run-fnirt" in os.sys.argv
+    
+    if is_force_run_fnirt:
+        print("Force running FNIRT nodes")
+        custom_fnirt_node.inputs.force_run = True
     
     # set working dir and datasink base directory
     workingdir = constants.WORKING_DIR if not is_test_run else opj(constants.ROI_BASE_DIR, "testworkingdir")
@@ -72,12 +80,16 @@ if __name__ == "__main__":
     roi_extract_workflow = Workflow(name="roi_extract_workflow", base_dir=workingdir)
     
     # get zfstat paths and affine files
-    zfstat_paths = utils.get_all_zfstat_paths_from_feat_datasink(constants.INPUT_FEAT_DATASINK)        
-    affine_files = utils.get_all_affine_files_from_feat_datasink(constants.INPUT_FEAT_DATASINK)
+    zfstat_paths, affine_files = utils.get_all_zfstat_paths_and_affine_files_from_feat_datasink(constants.INPUT_FEAT_DATASINK, )
+    
+    
     
     # check how many zfstat paths were found
     print()
-    print(f"Found {len(zfstat_paths)} zfstat paths")    
+    print(f"Found {len(affine_files)} affine files")
+    print(f"Found {len(zfstat_paths)} zfstat paths")     
+    print(f"Sample zfstat paths: {zfstat_paths[:2]}")
+    print(f"Sample affine files: {affine_files[:2]}")
     total_num_feat_dirs = len(os.listdir(constants.INPUT_FEAT_DATASINK))
     print(f"Total number of NL FEAT directories: {total_num_feat_dirs}")
     print(f"Missing zfstat paths: {total_num_feat_dirs * 6 - len(zfstat_paths)}")
