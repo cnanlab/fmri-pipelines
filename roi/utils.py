@@ -320,7 +320,7 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: b
     start_time = time.time()
     
     # Run FNIRT
-    fnirt = FNIRT(in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name, config_file="T1_2_MNI152_2mm")    
+    fnirt = FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name, config_file="T1_2_MNI152_2mm")    
     fnirt.run()
     
     end_time = time.time()

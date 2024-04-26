@@ -169,7 +169,7 @@ if __name__ == "__main__":
         
     start_time = time.time()    
     
-    run = roi_extract_workflow.run(plugin="MultiProc", plugin_args={"n_procs": 64})
+    run = roi_extract_workflow.run(plugin="MultiProc", plugin_args={"n_procs": 56})
     
     end_time = time.time()
     
