@@ -29,7 +29,7 @@ itersource.synchronize = True # To avoid all permutations of the lists being run
 # custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
 # custom_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE_SKULL
 
-registration_node = Node(Function(input_names=['nonlinear', 'in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["out_file"], function=utils.registration_node_func), name="registration")
+registration_node = Node(Function(input_names=['nonlinear', 'in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["out_file", "is_nonlinear"], function=utils.registration_node_func), name="registration")
 registration_node.synchronize = True
 
 # roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract", overwrite=True)
@@ -47,7 +47,7 @@ roi_extract_all_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
 avg_all_node = Node(Function(input_names=['roi_dicts'], output_names=["avg_dicts"], function=utils.average_each_roi_values_node_func), name="avg_all")
 
-add_metadata_node = Node(Function(input_names=["avg_dicts", "subject_id", "run", "image_name"], output_names=["dicts_with_metadata"], function=utils.add_metadata_node_func), name="add_metadata")
+add_metadata_node = Node(Function(input_names=["avg_dicts", "subject_id", "run", "image_name", "is_nonlinear"], output_names=["dicts_with_metadata"], function=utils.add_metadata_node_func), name="add_metadata")
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="itersource", joinfield=["joined_dicts"])
 
@@ -81,16 +81,21 @@ if __name__ == "__main__":
                                    ("force_run", force_run_iterables), 
                                    ("mni_template", mni_template_iterables)]
     
-    for i, (nonlinear, force_run, mni_template) in enumerate(registration_node.iterables):
-        print(f"nonlinear: {nonlinear}, force_run: {force_run}, mni_template: {mni_template}")
+    for i, is_nonlinear in enumerate(nonlinear_iterables):
+        name = "FNIRT" if is_nonlinear else "FLIRT"
+        
+        print(f"{name}:")
+        print("--------------------")
+        print(f"force_run: {force_run_iterables[i]}")
+        print(f"mni_template: {mni_template_iterables[i]}")
+        print()
     
     # set working dir and datasink base directory
     workingdir = constants.WORKING_DIR if not is_test_run else opj(constants.ROI_BASE_DIR, "testworkingdir")
     datasink.inputs.base_directory = constants.ROI_DATASINK if not is_test_run else opj(constants.ROI_BASE_DIR, "testdatasink")
         
     print(f"working dir: {workingdir}")
-    print(f"datasink base directory: {datasink.inputs.base_directory}")
-    print()
+    print(f"datasink base directory: {datasink.inputs.base_directory}")    
     
     roi_extract_all_node.inputs.is_test_run = is_test_run
     
@@ -154,7 +159,7 @@ if __name__ == "__main__":
     roi_extract_workflow.connect([(itersource, registration_node, [("affine_file", "affine_file"),
                                                                     ("zfstat_path", "in_file"),                                                                    ]),                                                                        
                                         (registration_node, roi_extract_all_node, [("out_file", "input_nifti")]),
-                                        # (custom_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
+                                        (registration_node, add_metadata_node, [("nonlinear", "nonlinear")]),
         ])  
     
         

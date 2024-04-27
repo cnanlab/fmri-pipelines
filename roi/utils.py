@@ -222,7 +222,7 @@ def join(dict: dict):
     
     return dict
 
-def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_name: str):
+def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_name: str, is_nonlinear: bool):
     """
     Adds metadata to the average ROI activations.
     """
@@ -232,6 +232,7 @@ def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_nam
         dict["subject_id"] = subject_id
         dict["run"] = run
         dict["image_name"] = image_name
+        dict["is_nonlinear"] = is_nonlinear
         
         joined_dicts.append(dict)
         
@@ -393,20 +394,18 @@ def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_
     
     print(f"{node_name}_NODE: {in_file} -> {out_name} stdout: {stdout}")
     
-    end_time = time.time()
-        
-        
+    end_time = time.time()                
     
     print(f"{node_name}_NODE: {in_file} -> {out_name} took {end_time - start_time} seconds, {(end_time - start_time) / 60} minutes.")
     
-    out_fnirt_path = os.path.join(os.getcwd(), out_name)
+    out_path = os.path.join(os.getcwd(), out_name)
     
     # copy the fnirt file to the location where the input file is (FEAT directory)
-    shutil.copy(out_fnirt_path, out_feat_path)
+    shutil.copy(out_path, out_feat_path)
     
-    print(f"{node_name}_NODE: Copied {out_fnirt_path} to {out_feat_path}")
+    print(f"{node_name}_NODE: Copied {out_path} to {out_feat_path}")
     
-    return out_feat_path            
+    return out_feat_path, nonlinear            
         
 
 def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
