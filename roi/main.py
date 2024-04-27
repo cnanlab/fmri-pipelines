@@ -17,15 +17,20 @@ itersource.synchronize = True # To avoid all permutations of the lists being run
 # rois_itersource = Node(interface=IdentityInterface(fields=['roi_num']), name="rois_itersource")
 # rois_itersource.iterables = [("roi_num", rois)]
 
-custom_flirt_node = Node(Function(input_names=['in_file', 'in_matrix_file'], output_names=['out_file', ]), name="custom_flirt")
+# custom_flirt_node = Node(Function(input_names=['in_file', 'in_matrix_file'], output_names=['out_file', ]), name="custom_flirt")
 
-dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'subject_id', 'run', 'image_name'], output_names=["warped_file"], function=utils.dummy_fnirt), name="dummy_fnirt")
-dummy_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE
+# dummy_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'subject_id', 'run', 'image_name'], output_names=["warped_file"], function=utils.dummy_fnirt), name="dummy_fnirt")
+# dummy_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE_SKULL
 
 # fnirt_node = Node(fsl.FNIRT(ref_file=constants.MNI_TEMPLATE, output_type='NIFTI_GZ'), name="fnirt")
 
-custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'force_run'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
-custom_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE
+
+# print("WARN: no affine file is being used for custom_fnirt_node for testing purposes")
+# custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
+# custom_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE_SKULL
+
+registration_node = Node(Function(input_names=['nonlinear', 'in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["out_file"], function=utils.registration_node_func), name="registration")
+registration_node.synchronize = True
 
 # roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract", overwrite=True)
 # roi_extract_node.inputs.mask_file_path = constants.MASK_FILE_PATH
@@ -52,20 +57,32 @@ datasink = Node(DataSink(), name="datasink")
 
 if __name__ == "__main__":
     print(f"pipeline base dir: {constants.PIPELINE_BASE_DIR}")    
-    print(f"roi base dir: {constants.ROI_BASE_DIR}")    
-    print(f"Using MNI template: {constants.MNI_TEMPLATE}")
+    print(f"roi base dir: {constants.ROI_BASE_DIR}")        
     print(f"input feat datasink: {constants.INPUT_FEAT_DATASINK}")
     print(f"mask file path: {constants.MASK_FILE_PATH}")
-    print(f"roi_extract_overwrite: {roi_extract_overwrite}")
-    print()
+    print(f"roi_extract_overwrite: {roi_extract_overwrite}")    
     
     is_test_run = "--test" in os.sys.argv        
     
-    is_force_run_fnirt = "--force-run-fnirt" in os.sys.argv
+    is_force_run_fnirt = "--force-run-fnirt" in os.sys.argv     
     
-    if is_force_run_fnirt:
-        print("Force running FNIRT nodes")
-        custom_fnirt_node.inputs.force_run = True
+    is_force_run = "--force-run" in os.sys.argv           
+    
+    nonlinear_iterables = [True, False]
+    force_run_iterables = [False, False]
+    mni_template_iterables = [constants.MNI_TEMPLATE_SKULL, constants.MNI_TEMPLATE]
+    
+    if is_force_run:        
+        force_run_iterables = [True, True]
+    elif is_force_run_fnirt:        
+        force_run_iterables = [True, False]        
+    
+    registration_node.iterables = [("nonlinear", nonlinear_iterables), 
+                                   ("force_run", force_run_iterables), 
+                                   ("mni_template", mni_template_iterables)]
+    
+    for i, (nonlinear, force_run, mni_template) in enumerate(registration_node.iterables):
+        print(f"nonlinear: {nonlinear}, force_run: {force_run}, mni_template: {mni_template}")
     
     # set working dir and datasink base directory
     workingdir = constants.WORKING_DIR if not is_test_run else opj(constants.ROI_BASE_DIR, "testworkingdir")
@@ -81,9 +98,7 @@ if __name__ == "__main__":
     
     # get zfstat paths and affine files
     zfstat_paths, affine_files = utils.get_all_zfstat_paths_and_affine_files_from_feat_datasink(constants.INPUT_FEAT_DATASINK, )
-    
-    
-    
+            
     # check how many zfstat paths were found
     print()
     print(f"Found {len(affine_files)} affine files")
@@ -98,7 +113,7 @@ if __name__ == "__main__":
     # For testing, use only first few zfstat paths and affine files
     ################################################################
     if is_test_run:
-        test_n = 2
+        test_n = 4
         zfstat_paths = zfstat_paths[:test_n]
         affine_files = affine_files[:test_n]
         print(f"Using only first {test_n} zfstat paths and affine files for testing")
@@ -116,24 +131,32 @@ if __name__ == "__main__":
     ###### Connect nodes
     
     # Use a 'dummy' fnirt node if the '--no-fnirt' argument is passed (for easier testing without fnirt)
-    if "--no-fnirt" in os.sys.argv:
-        roi_extract_workflow.connect([(itersource, dummy_fnirt_node, [("affine_file", "affine_file"),
-                                                                    ("zfstat_path", "in_file"),
-                                                                    ("subject_id", "subject_id"),
-                                                                    ("run", "run"),
-                                                                    ("image_name", "image_name")]),                                                                        
-                                        (dummy_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
-                                        # (dummy_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
-        ])
-    else:
-        roi_extract_workflow.connect([(itersource, custom_fnirt_node, [("affine_file", "affine_file"),
-                                                                    ("zfstat_path", "in_file"),
-                                                                    ("subject_id", "subject_id"),
-                                                                    ("run", "run"),
-                                                                    ("image_name", "image_name")]),                                                                        
-                                        (custom_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
+    # if "--no-fnirt" in os.sys.argv:
+    #     roi_extract_workflow.connect([(itersource, dummy_fnirt_node, [("affine_file", "affine_file"),
+    #                                                                 ("zfstat_path", "in_file"),
+    #                                                                 ("subject_id", "subject_id"),
+    #                                                                 ("run", "run"),
+    #                                                                 ("image_name", "image_name")]),                                                                        
+    #                                     (dummy_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
+    #                                     # (dummy_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
+    #     ])
+    # else:
+    #     roi_extract_workflow.connect([(itersource, custom_fnirt_node, [("affine_file", "affine_file"),
+    #                                                                 ("zfstat_path", "in_file"),
+    #                                                                 ("subject_id", "subject_id"),
+    #                                                                 ("run", "run"),
+    #                                                                 ("image_name", "image_name")]),                                                                        
+    #                                     (custom_fnirt_node, roi_extract_all_node, [("warped_file", "input_nifti")]),
+    #                                     # (custom_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
+    #     ])                   
+    
+    # connect registration node
+    roi_extract_workflow.connect([(itersource, registration_node, [("affine_file", "affine_file"),
+                                                                    ("zfstat_path", "in_file"),                                                                    ]),                                                                        
+                                        (registration_node, roi_extract_all_node, [("out_file", "input_nifti")]),
                                         # (custom_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
-        ])                   
+        ])  
+    
         
     # main connections
     roi_extract_workflow.connect([(roi_extract_all_node, avg_all_node, [("roi_dicts", "roi_dicts")]),

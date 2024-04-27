@@ -295,7 +295,7 @@ def dummy_fnirt(in_file: str, affine_file: str, mni_template: str, subject_id: s
     
     return in_file
 
-def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: bool = False) -> str:
+def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: bool = False, no_affine: bool = False) -> str:
     """
     Custom implementation of FNIRT.
     """
@@ -319,8 +319,14 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: b
     
     start_time = time.time()
     
-    # Run FNIRT
-    fnirt = FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name, config_file="T1_2_MNI152_2mm")    
+    # Run FNIRT    
+    
+    if no_affine:
+        fnirt = FNIRT(ref_file=mni_template, in_file=in_file, output_type='NIFTI_GZ', warped_file=out_warped_name, config_file="T1_2_MNI152_2mm")
+    else:
+        fnirt = FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_warped_name, config_file="T1_2_MNI152_2mm")    
+        
+    
     fnirt.run()
     
     end_time = time.time()
@@ -336,11 +342,72 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: b
     
     return out_feat_path
 
-def flirt_wrapper():
+def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_template: str, force_run: bool = False, no_affine: bool = False) -> str:
     """
-    Wrapper for FLIRT.
+    Registration node function.
     """
-    pass
+    import os
+    import time
+    import shutil
+     # Ex: zfstat1.nii.gz
+    in_file_name = os.path.basename(in_file)    
+    
+    name = "NL" if nonlinear else "LN"
+    
+    node_name = "FNIRT" if nonlinear else "FLIRT"
+    
+    # Add "_LN" or "_NL" to the filename
+    # Ex: zfstat1_NL.nii.gz
+    out_name = in_file_name.replace(".nii.gz", "_${name}.nii.gz")
+    
+    out_feat_path = os.path.join(os.path.dirname(in_file), out_name)
+    
+    if os.path.exists(out_feat_path) and not force_run:
+            print(f"{node_name}_NODE: {in_file} -> {out_name} already exists. Skipping.")
+            return out_feat_path        
+    
+    def get_interface():
+        if nonlinear:
+            from nipype.interfaces.fsl import FNIRT
+            # Run FNIRT    
+
+            if no_affine:
+                return FNIRT(ref_file=mni_template, in_file=in_file, output_type='NIFTI_GZ', warped_file=out_name, config_file="T1_2_MNI152_2mm")
+            else:
+                return FNIRT(ref_file=mni_template, in_file=in_file, affine_file=affine_file, output_type='NIFTI_GZ', warped_file=out_name, config_file="T1_2_MNI152_2mm")    
+        else:
+            from nipype.interfaces.fsl import FLIRT
+
+            if not "brain" in mni_template:
+                raise ValueError("MNI template must be a brain template for FLIRT.")                
+
+            return FLIRT(reference=mni_template, apply_xfm=True, in_matrix_file=affine_file, padding_size=0, interp="trilinear", output_type='NIFTI_GZ')
+    
+    interface = get_interface()
+    
+    start_time = time.time()
+    
+    result = interface.run()    
+    
+    stdout = result.runtime.stdout
+    
+    print(f"{node_name}_NODE: {in_file} -> {out_name} stdout: {stdout}")
+    
+    end_time = time.time()
+        
+        
+    
+    print(f"{node_name}_NODE: {in_file} -> {out_name} took {end_time - start_time} seconds, {(end_time - start_time) / 60} minutes.")
+    
+    out_fnirt_path = os.path.join(os.getcwd(), out_name)
+    
+    # copy the fnirt file to the location where the input file is (FEAT directory)
+    shutil.copy(out_fnirt_path, out_feat_path)
+    
+    print(f"{node_name}_NODE: Copied {out_fnirt_path} to {out_feat_path}")
+    
+    return out_feat_path            
+        
 
 def get_subject_id_from_zfstat_path(zfstat_path: str) -> str:
     """

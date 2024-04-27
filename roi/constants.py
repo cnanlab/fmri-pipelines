@@ -19,6 +19,8 @@ WORKING_DIR = opj(ROI_BASE_DIR, WORKING_DIR_NAME)
 
 MNI_TEMPLATE = '/usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz'
 
+MNI_TEMPLATE_SKULL = '/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz'
+
 MASK_FILE_PATH = opj(ROI_BASE_DIR, "grantmask_labeled.nii")
 
 BASE_DATASINKS_DIR = "/mnt/storage/daniel/" if not IS_LAB_SERVER else "/home/danielsuh/mountdir/daniel/"
