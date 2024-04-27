@@ -1,4 +1,5 @@
 import nilearn.image
+from requests import get
 import constants
 
 def get_latest_feat_dir(feat_datasink: str) -> str:
@@ -15,21 +16,36 @@ def get_latest_feat_dir(feat_datasink: str) -> str:
     
     pass   
 
-def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = False, nonlinear_register: bool = False) -> list:
+def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = False, type: str = "normal") -> list:
     """
     Returns all the zfstat paths from the feat datasink (directory with all FEAT runs).
+    
+    type: "normal" or "nonlinear" or "linear"
     """
     import os
     
+    # type is either "normal" or "nonlinear" or "linear"    
+        
     zfstat_paths = []
+    
+    def get_file_name(contrast_id: int):
+        if type == "normal":
+            return f"zfstat{contrast_id}.nii.gz"
+        elif type == "nonlinear":
+            return f"zfstat{contrast_id}_NL.nii.gz"
+        elif type == "linear":
+            return f"zfstat{contrast_id}_LN.nii.gz"
+        else:
+            raise ValueError("Invalid type")
     
     for feat_dir_name in os.listdir(feat_datasink):
         # skip linear FEAT runs (LN)
+        
         if "LN" in feat_dir_name:                        
             continue
         
-        for contrast_id in range(1, 7):
-            file_name = f"zfstat{contrast_id}.nii.gz" if not nonlinear_register else f"zfstat{contrast_id}_NL.nii.gz"
+        for contrast_id in range(1, 7):                                    
+            file_name = get_file_name(contrast_id)
             zfstat_path = os.path.join(feat_datasink, feat_dir_name, "stats", file_name)
             if os.path.exists(zfstat_path):
                 zfstat_paths.append(zfstat_path)                
@@ -222,7 +238,7 @@ def join(dict: dict):
     
     return dict
 
-def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_name: str, is_nonlinear: bool):
+def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_name: str, session:str, is_nonlinear: bool):
     """
     Adds metadata to the average ROI activations.
     """
@@ -233,6 +249,7 @@ def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_nam
         dict["run"] = run
         dict["image_name"] = image_name
         dict["is_nonlinear"] = is_nonlinear
+        dict["session"] = session
         
         joined_dicts.append(dict)
         
@@ -343,13 +360,14 @@ def custom_fnirt(in_file: str, affine_file: str, mni_template: str, force_run: b
     
     return out_feat_path
 
-def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_template: str, force_run: bool = False, no_affine: bool = False) -> str:
+def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_template: str, force_run: bool = False, no_affine: bool = False):
     """
     Registration node function.
     """
     import os
     import time
     import shutil
+     
      # Ex: zfstat1.nii.gz
     in_file_name = os.path.basename(in_file)    
     
@@ -359,13 +377,13 @@ def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_
     
     # Add "_LN" or "_NL" to the filename
     # Ex: zfstat1_NL.nii.gz
-    out_name = in_file_name.replace(".nii.gz", "_${name}.nii.gz")
+    out_name = in_file_name.replace(".nii.gz", f"_{name}.nii.gz")
     
     out_feat_path = os.path.join(os.path.dirname(in_file), out_name)
     
     if os.path.exists(out_feat_path) and not force_run:
             print(f"{node_name}_NODE: {in_file} -> {out_name} already exists. Skipping.")
-            return out_feat_path        
+            return out_feat_path, nonlinear
     
     def get_interface():
         if nonlinear:
@@ -382,7 +400,7 @@ def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_
             if not "brain" in mni_template:
                 raise ValueError("MNI template must be a brain template for FLIRT.")                
 
-            return FLIRT(reference=mni_template, apply_xfm=True, in_matrix_file=affine_file, padding_size=0, interp="trilinear", output_type='NIFTI_GZ')
+            return FLIRT(in_file=in_file, out_file=out_name, reference=mni_template, apply_xfm=True, in_matrix_file=affine_file, save_log=True, out_log="flirt-log.txt", padding_size=0, interp="trilinear", output_type='NIFTI_GZ')
     
     interface = get_interface()
     
@@ -401,9 +419,9 @@ def registration_node_func(nonlinear: bool, in_file: str, affine_file: str, mni_
     out_path = os.path.join(os.getcwd(), out_name)
     
     # copy the fnirt file to the location where the input file is (FEAT directory)
-    shutil.copy(out_path, out_feat_path)
+    dest = shutil.copy(out_path, out_feat_path)
     
-    print(f"{node_name}_NODE: Copied {out_path} to {out_feat_path}")
+    print(f"{node_name}_NODE: Copied {out_path} to {dest}")
     
     return out_feat_path, nonlinear            
         

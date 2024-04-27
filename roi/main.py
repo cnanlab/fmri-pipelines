@@ -8,7 +8,7 @@ import utils
 import constants
 from os.path import join as opj
 
-itersource = Node(interface=IdentityInterface(fields=['zfstat_path', 'affine_file', "subject_id", "run", "image_name"]),
+itersource = Node(interface=IdentityInterface(fields=['zfstat_path', 'affine_file', "subject_id", "run", "image_name", "session"]),
                   name="itersource")
 itersource.synchronize = True # To avoid all permutations of the lists being run
 
@@ -29,7 +29,7 @@ itersource.synchronize = True # To avoid all permutations of the lists being run
 # custom_fnirt_node = Node(Function(input_names=['in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["warped_file"], function=utils.custom_fnirt), name="custom_fnirt")
 # custom_fnirt_node.inputs.mni_template = constants.MNI_TEMPLATE_SKULL
 
-registration_node = Node(Function(input_names=['nonlinear', 'in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["out_file", "is_nonlinear"], function=utils.registration_node_func), name="registration")
+registration_node = Node(Function(input_names=['nonlinear', 'in_file', 'affine_file', 'mni_template', 'force_run', 'no_affine'], output_names=["out_file", "nonlinear"], function=utils.registration_node_func), name="registration")
 registration_node.synchronize = True
 
 # roi_extract_node = Node(Function(input_names=['input_nifti', 'roi_num', 'mask_file_path'], output_names=["roi_values", "zfstat_path", "roi_num"], function=utils.roi_extract_node_func), name="roi_extract", overwrite=True)
@@ -47,7 +47,7 @@ roi_extract_all_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
 avg_all_node = Node(Function(input_names=['roi_dicts'], output_names=["avg_dicts"], function=utils.average_each_roi_values_node_func), name="avg_all")
 
-add_metadata_node = Node(Function(input_names=["avg_dicts", "subject_id", "run", "image_name", "is_nonlinear"], output_names=["dicts_with_metadata"], function=utils.add_metadata_node_func), name="add_metadata")
+add_metadata_node = Node(Function(input_names=["avg_dicts", "subject_id", "run", "image_name", "is_nonlinear", "session"], output_names=["dicts_with_metadata"], function=utils.add_metadata_node_func), name="add_metadata")
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="itersource", joinfield=["joined_dicts"])
 
@@ -68,14 +68,14 @@ if __name__ == "__main__":
     
     is_force_run = "--force-run" in os.sys.argv           
     
-    nonlinear_iterables = [True, False]
-    force_run_iterables = [False, False]
-    mni_template_iterables = [constants.MNI_TEMPLATE_SKULL, constants.MNI_TEMPLATE]
+    nonlinear_iterables = []
+    force_run_iterables = []
+    mni_template_iterables = []
     
-    if is_force_run:        
-        force_run_iterables = [True, True]
-    elif is_force_run_fnirt:        
-        force_run_iterables = [True, False]        
+    if "--flirt" in os.sys.argv:
+        nonlinear_iterables = [False]
+        force_run_iterables = [is_force_run]
+        mni_template_iterables = [constants.MNI_TEMPLATE]    
     
     registration_node.iterables = [("nonlinear", nonlinear_iterables), 
                                    ("force_run", force_run_iterables), 
@@ -129,9 +129,10 @@ if __name__ == "__main__":
     subject_ids = [utils.get_subject_id_from_zfstat_path(zfstat_path) for zfstat_path in zfstat_paths]
     runs = [utils.get_run_from_zfstat_path(zfstat_path) for zfstat_path in zfstat_paths]
     image_names = [utils.get_image_name_from_zfstat_path(zfstat_path) for zfstat_path in zfstat_paths]
+    sessions = [utils.get_session_from_zfstat_path(zfstat_path) for zfstat_path in zfstat_paths]
     
     # set iterables
-    itersource.iterables = [("zfstat_path", zfstat_paths), ("affine_file", affine_files), ("subject_id", subject_ids), ("run", runs), ("image_name", image_names)]        
+    itersource.iterables = [("zfstat_path", zfstat_paths), ("affine_file", affine_files), ("subject_id", subject_ids), ("run", runs), ("image_name", image_names), ("session", sessions)]        
     
     ###### Connect nodes
     
@@ -159,7 +160,7 @@ if __name__ == "__main__":
     roi_extract_workflow.connect([(itersource, registration_node, [("affine_file", "affine_file"),
                                                                     ("zfstat_path", "in_file"),                                                                    ]),                                                                        
                                         (registration_node, roi_extract_all_node, [("out_file", "input_nifti")]),
-                                        (registration_node, add_metadata_node, [("nonlinear", "nonlinear")]),
+                                        (registration_node, add_metadata_node, [("nonlinear", "is_nonlinear")]),
         ])  
     
         
@@ -168,15 +169,18 @@ if __name__ == "__main__":
                                     (avg_all_node, add_metadata_node, [("avg_dicts", "avg_dicts")]),
                                     (itersource, add_metadata_node, [("subject_id", "subject_id"),
                                                                     ("run", "run"),
-                                                                    ("image_name", "image_name")]),
+                                                                    ("image_name", "image_name"),
+                                                                    ("session", "session")]),
                                     (add_metadata_node, join_all_node, [("dicts_with_metadata", "joined_dicts")]),
                                     (join_all_node, make_csv_node, [("flattened", "flattened")]),
                                     (make_csv_node, datasink, [("save_path", "roi_csv")]),                                    
                                     ])    
                                  
     
+    crash_dir = opj(workingdir, "crash")
+    
     # set crash directory
-    roi_extract_workflow.config["execution"]["crashdump_dir"] = opj(roi_extract_workflow.config["execution"]["crashdump_dir"], os.path.dirname(workingdir), "crash")
+    roi_extract_workflow.config["execution"]["crashdump_dir"] = crash_dir
 
     # write graphs 
     if "--exec-graph" in os.sys.argv or is_test_run:
