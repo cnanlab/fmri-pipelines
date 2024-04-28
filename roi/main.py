@@ -42,12 +42,12 @@ registration_node.synchronize = True
 roi_extract_overwrite = False
 
 # roi extract function that also creates dicts with all of the metadata needed
-roi_extract_all_node = Node(Function(input_names=['input_nifti', 'mask_file_path', 'is_test_run'], output_names=["roi_dicts"], function=utils.roi_extract_all_node_func), name="roi_extract_all", overwrite=roi_extract_overwrite)
+roi_extract_all_node = Node(Function(input_names=['input_nifti', 'mask_file_path', 'is_test_run', 'no_avg'], output_names=["roi_dicts"], function=utils.roi_extract_all_node_func), name="roi_extract_all", overwrite=roi_extract_overwrite)
 roi_extract_all_node.inputs.mask_file_path = constants.MASK_FILE_PATH
 
 avg_all_node = Node(Function(input_names=['roi_dicts'], output_names=["avg_dicts"], function=utils.average_each_roi_values_node_func), name="avg_all")
 
-add_metadata_node = Node(Function(input_names=["avg_dicts", "subject_id", "run", "image_name", "is_nonlinear", "session"], output_names=["dicts_with_metadata"], function=utils.add_metadata_node_func), name="add_metadata")
+add_metadata_node = Node(Function(input_names=["dicts", "subject_id", "run", "image_name", "is_nonlinear", "session"], output_names=["dicts_with_metadata"], function=utils.add_metadata_node_func), name="add_metadata")
 
 join_all_node = JoinNode(Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_all", joinsource="itersource", joinfield=["joined_dicts"])
 
@@ -66,7 +66,12 @@ if __name__ == "__main__":
     
     is_force_run_fnirt = "--force-run-fnirt" in os.sys.argv     
     
-    is_force_run = "--force-run" in os.sys.argv           
+    is_force_run = "--force-run" in os.sys.argv   
+    
+    is_no_avg = "--no-avg" in os.sys.argv      
+    roi_extract_all_node.inputs.no_avg = is_no_avg
+    
+    print(f"is_no_avg: {is_no_avg}")
     
     nonlinear_iterables = []
     force_run_iterables = []
@@ -156,25 +161,30 @@ if __name__ == "__main__":
     #                                     # (custom_fnirt_node, datasink, [("warped_file", "fnirt.@warped")]),
     #     ])                   
     
-    # connect registration node
+    
+    if is_no_avg:
+        roi_extract_workflow.connect([
+            (roi_extract_all_node, add_metadata_node, [("roi_dicts", "dicts")])
+            ])
+    else:
+        roi_extract_workflow.connect([
+            (roi_extract_all_node, avg_all_node, [("roi_dicts", "roi_dicts")]),
+            (avg_all_node, add_metadata_node, [("avg_dicts", "avg_dicts")])
+            ])
+    
+    # connect all nodes
     roi_extract_workflow.connect([(itersource, registration_node, [("affine_file", "affine_file"),
                                                                     ("zfstat_path", "in_file"),                                                                    ]),                                                                        
                                         (registration_node, roi_extract_all_node, [("out_file", "input_nifti")]),
-                                        (registration_node, add_metadata_node, [("nonlinear", "is_nonlinear")]),
-        ])  
-    
-        
-    # main connections
-    roi_extract_workflow.connect([(roi_extract_all_node, avg_all_node, [("roi_dicts", "roi_dicts")]),
-                                    (avg_all_node, add_metadata_node, [("avg_dicts", "avg_dicts")]),
+                                        (registration_node, add_metadata_node, [("nonlinear", "is_nonlinear")]),                                        
                                     (itersource, add_metadata_node, [("subject_id", "subject_id"),
                                                                     ("run", "run"),
                                                                     ("image_name", "image_name"),
                                                                     ("session", "session")]),
                                     (add_metadata_node, join_all_node, [("dicts_with_metadata", "joined_dicts")]),
                                     (join_all_node, make_csv_node, [("flattened", "flattened")]),
-                                    (make_csv_node, datasink, [("save_path", "roi_csv")]),                                    
-                                    ])    
+                                    (make_csv_node, datasink, [("save_path", "roi_csv")]), 
+        ])              
                                  
     
     crash_dir = opj(workingdir, "crash")

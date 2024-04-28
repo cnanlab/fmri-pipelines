@@ -111,7 +111,7 @@ def get_all_affine_files_from_feat_datasink(feat_datasink: str) -> list:
     return affine_files
 
 
-def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run=False):
+def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run=False, no_avg: bool = False):
     """
     Extracts all the ROIs from the input nifti file.
     """
@@ -136,7 +136,7 @@ def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run
         
         # remove indices if they are out of bounds
         roi_indices = [index for index in roi_indices if all([i < data.shape[i] for i in range(3)])]        
-        print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")                                
+        print(f"Found {len(roi_indices)} voxels in {input_nifti} for ROI number {roi_num}")                                        
 
         roi_values = None
 
@@ -148,15 +148,28 @@ def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run
             # Get the values of the ROI at the indices
             roi_values = [data[tuple(index)] for index in roi_indices]                                
         
-        roi_dict = {
-            "roi_values": roi_values,
-            "zfstat_path": input_nifti,
-            "roi_num": roi_num,
-        }
+        if no_avg:
+            for roi_index in roi_indices:
+                roi_dict = {
+                    "roi_value": data[tuple(roi_index)],
+                    "x_coord": roi_index[0],
+                    "y_coord": roi_index[1],
+                    "z_coord": roi_index[2],
+                    "zfstat_path": input_nifti,
+                    "roi_num": roi_num,
+                }
+            
+            roi_dicts.append(roi_dict)
+            continue
+        else:
         
-        # print(f"ROI {roi_num} dict: {roi_dict}")
+            roi_dict = {
+                "roi_values": roi_values,            
+                "zfstat_path": input_nifti,
+                "roi_num": roi_num,
+            }
         
-        roi_dicts.append(roi_dict)
+        roi_dicts.append(roi_dict)                        
         
     return roi_dicts
                         
@@ -170,16 +183,13 @@ def average_each_roi_values_node_func(roi_dicts: list):
     
     for dict in roi_dicts:
         roi_values = dict["roi_values"]
-        zfstat_path = dict["zfstat_path"]
-        roi_num = dict["roi_num"]
-        
+                
         avg = np.mean(roi_values)
         
-        avg_dicts.append({
-            "avg": avg,
-            "zfstat_path": zfstat_path,
-            "roi_num": roi_num                        
-        })
+        del dict["roi_values"]        
+        dict["avg"] = avg        
+        
+        avg_dicts.append(dict)                        
         
     return avg_dicts
 
@@ -238,13 +248,13 @@ def join(dict: dict):
     
     return dict
 
-def add_metadata_node_func(avg_dicts: list, subject_id: str, run: int, image_name: str, session:str, is_nonlinear: bool):
+def add_metadata_node_func(dicts: list, subject_id: str, run: int, image_name: str, session:str, is_nonlinear: bool):
     """
     Adds metadata to the average ROI activations.
     """
     joined_dicts = []
     
-    for dict in avg_dicts:        
+    for dict in dicts:        
         dict["subject_id"] = subject_id
         dict["run"] = run
         dict["image_name"] = image_name
