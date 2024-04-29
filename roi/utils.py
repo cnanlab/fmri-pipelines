@@ -150,6 +150,7 @@ def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run
         
         if no_avg:
             for roi_index in roi_indices:
+                # roi_index: (64, 50, 40)
                 roi_dict = {
                     "roi_value": data[tuple(roi_index)],
                     "x_coord": roi_index[0],
@@ -157,9 +158,10 @@ def roi_extract_all_node_func(input_nifti: str, mask_file_path: str, is_test_run
                     "z_coord": roi_index[2],
                     "zfstat_path": input_nifti,
                     "roi_num": roi_num,
-                }
+                }            
+                
+                roi_dicts.append(roi_dict)
             
-            roi_dicts.append(roi_dict)
             continue
         else:
         
