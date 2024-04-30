@@ -16,6 +16,44 @@ def get_latest_feat_dir(feat_datasink: str) -> str:
     
     pass   
 
+def get_file_name(type: str, contrast_id: int):
+    if type == "normal":
+        return f"zfstat{contrast_id}.nii.gz"
+    elif type == "nonlinear":
+        return f"zfstat{contrast_id}_NL.nii.gz"
+    elif type == "linear":
+        return f"zfstat{contrast_id}_LN.nii.gz"
+    else:
+        raise ValueError("Invalid type")
+
+def get_zfstat_paths(feat_datasink: str, session: str, subject_id: str, run: int, type: str = "normal", linear_feat: bool = False):
+    """
+    Returns the zfstat paths for a given subject, session, and run.
+    
+    type: "normal" or "nonlinear" or "linear"
+    """
+    import os
+    feat_dir_name = f"sub-{subject_id}_ses-{session}_task-sst_run-{run:02}{"LN" if linear_feat else "NL"}.feat"
+    
+    zfstat_paths = []
+    
+    stats_path = os.path.join(feat_datasink, feat_dir_name, "stats")        
+    
+    for contrast_id in range(1, 7):
+        file_name = get_file_name(type, contrast_id)
+        
+        zfstat_path = os.path.join(stats_path, file_name)
+        
+        if os.path.exists(zfstat_path):
+            zfstat_paths.append(zfstat_path)
+        else:
+            print(f"WARN: zfstat path {zfstat_path} does not exist")
+            pass
+    
+    return zfstat_paths
+    
+    
+
 def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = False, type: str = "normal") -> list:
     """
     Returns all the zfstat paths from the feat datasink (directory with all FEAT runs).

@@ -69,8 +69,7 @@ if __name__ == "__main__":
     is_force_run = "--force-run" in os.sys.argv   
     
     is_no_avg = "--no-avg" in os.sys.argv      
-    roi_extract_all_node.inputs.no_avg = is_no_avg
-    
+    roi_extract_all_node.inputs.no_avg = is_no_avg        
     print(f"is_no_avg: {is_no_avg}")
     
     nonlinear_iterables = []
