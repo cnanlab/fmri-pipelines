@@ -227,8 +227,13 @@ wrapped_bet_node = Node(Function(input_names=["in_file", "out_file"], output_nam
 
 # bet <anat> <output> -f <fractional intensity threshold> -g <vertical gradient>
 
-custom_timing_files_node = Node(Function(input_names=["base_subjects_path", "subject_id", "session", "run"], output_names="out_files", function=util.create_custom_timing_files_sst), name="custom_timing_files_node")
-custom_timing_files_node.inputs.base_subjects_path = BASE_SUBJECTS_DIR
+if "--offset-timing-files" in os.sys.argv:
+    custom_timing_files_node = Node(Function(input_names=["base_subjects_path", "subject_id", "session", "run"], output_names="out_files", function=util.create_custom_timing_files_sst_offset), name="custom_timing_files_node")
+    custom_timing_files_node.inputs.base_subjects_path = BASE_SUBJECTS_DIR
+    print("INFO: Using offset timing files")
+else: 
+    custom_timing_files_node = Node(Function(input_names=["base_subjects_path", "subject_id", "session", "run"], output_names="out_files", function=util.create_custom_timing_files_sst), name="custom_timing_files_node")
+    custom_timing_files_node.inputs.base_subjects_path = BASE_SUBJECTS_DIR
 
 def wait_node_func(subject_id, task, run, session, custom_timing_files_node_out, bet_node_out):
     return subject_id, task, run, session
@@ -309,7 +314,7 @@ start_time = time.time()
 #     Thread(s) per core:  2
 #     Core(s) per socket:  32
 #     Socket(s):           1
-run = preproc.run(plugin="MultiProc", plugin_args={"n_procs": 32})
+run = preproc.run(plugin="MultiProc", plugin_args={"n_procs": 60})
 
 ## testing
 # run = preproc.run(plugin="MultiProc", plugin_args={"n_procs": 1})
