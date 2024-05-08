@@ -171,6 +171,12 @@ if __name__ == "__main__":
             (avg_all_node, add_metadata_node, [("avg_dicts", "avg_dicts")])
             ])
     
+    save_dirname = "roi_csv"
+    
+    if "--save-dirname" in os.sys.argv:
+        save_dirname = os.sys.argv[os.sys.argv.index("--save-dirname") + 1]
+        print(f"save_dirname: {save_dirname}")                
+    
     # connect all nodes
     roi_extract_workflow.connect([(itersource, registration_node, [("affine_file", "affine_file"),
                                                                     ("zfstat_path", "in_file"),                                                                    ]),                                                                        
@@ -182,7 +188,7 @@ if __name__ == "__main__":
                                                                     ("session", "session")]),
                                     (add_metadata_node, join_all_node, [("dicts_with_metadata", "joined_dicts")]),
                                     (join_all_node, make_csv_node, [("flattened", "flattened")]),
-                                    (make_csv_node, datasink, [("save_path", "roi_csv")]), 
+                                    (make_csv_node, datasink, [("save_path", save_dirname)]), 
         ])              
                                  
     

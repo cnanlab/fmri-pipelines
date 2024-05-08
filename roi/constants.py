@@ -28,4 +28,6 @@ BASE_DATASINKS_DIR = "/mnt/storage/daniel/" if not IS_LAB_SERVER else "/home/dan
 # hardcoded timestamp for the input feat datasink
 INPUT_FEAT_DATASINK = opj(BASE_DATASINKS_DIR, "feat-preprocess-datasink/2024-04-21_23-16-00")
 
+# INPUT_FEAT_DATASINK = opj(BASE_DATASINKS_DIR, "feat-preprocess-datasink/2024-04-30_11-35-01") # offset TSVs run
+
 ROI_DATASINK = opj(BASE_DATASINKS_DIR, "roi-datasink")
