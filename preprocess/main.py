@@ -34,7 +34,6 @@ BASE_SUBJECTS_DIR = "/mnt/storage/SST/"
 # subject_directory_names = [name for name in os.listdir(base_subjects_dir) if name.startswith("sub-")]
 # extract 'sub-' prefix from 'sub-{subj_id}'
 # subject_id_list = [re.sub(r'^sub-', '', dir_name) for dir_name in subject_directory_names]
-
 # Only for test subjects right now
 subject_id_list = []
 
@@ -54,6 +53,22 @@ with open(anx_test_subjects_path, "r") as file:
     for subj_id in anx_subject_ids:
         if subj_id not in subject_id_list:
             subject_id_list.append(subj_id)
+
+all_subjects_path = opj(PIPELINE_BASE_DIR, "subjects", "all_subj_ids.txt")
+
+# add 150 more random subjects not in previous 2 groups
+n_added = 0
+with open(all_subjects_path, "r") as file:
+    all_subject_ids = [name.strip() for name in file.readlines()]
+    print(f"loaded {len(all_subject_ids)} subjects from {all_subjects_path}")
+    
+    # only append unique subjects
+    for subj_id in all_subject_ids:
+        if subj_id not in subject_id_list:
+            subject_id_list.append(subj_id)
+            n_added += 1
+            if n_added >= 150:
+                break
 
 # subject_id_list = subject_id_list[:2]
 
@@ -80,13 +95,23 @@ run_list = [1, 2]
 print("run list", run_list)
 task_list = ["sst"]
 print("task list", task_list)
-session_list = ["baselineYear1Arm1", "2YearFollowUpYArm1", "4YearFollowUpYArm1"]
+# session_list = ["baselineYear1Arm1", "2YearFollowUpYArm1", "4YearFollowUpYArm1"]
+session_list = ["baselineYear1Arm1"]
 print("session list", session_list)
 
 experiment_dir = BASE_SUBJECTS_DIR
 # datasink_dir = opj(PREPROCESS_DIR, "datasink")
-date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-datasink_dir = f"/mnt/storage/daniel/feat-preprocess-datasink/{date_string}"
+
+datasink_dir_base = "/mnt/storage/daniel/feat-preprocess-datasink"
+
+if "--name" in os.sys.argv:
+    name = os.sys.argv[os.sys.argv.index("--name") + 1]
+    datasink_dir = f"{datasink_dir_base}/{name}"
+else:
+    date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    datasink_dir = f"{datasink_dir_base}/{date_string}"
+# datasink_dir = f"/mnt/storage/daniel/feat-preprocess-datasink/{date_string}"
+
 
 # make sure datasink directory exists
 if not os.path.exists(datasink_dir):
@@ -126,9 +151,9 @@ def create_design_fsf(subject_id: str, task: str, session: str, run: int, base_d
         file_content = file.read()  
     
     subj_regex = r"sub-([^_/]+)" # match 'sub-' and any non-delimter characters ('_' or '/')
-    run_regex = r"run-([\d]+)"    
-    task_regex = r"task-([^_]+)"
-    session_regex = r"ses-([^_/]+)"
+    run_regex = r"run-([\d]+)"    # 'run-' and any digits
+    task_regex = r"task-([^_]+)" # 'task-' and any non-delimter characters ('_' or '/')
+    session_regex = r"ses-([^_/]+)" # 'ses-' and any non-delimter characters ('_' or '/')
     
     # replace 'sub-' with actual subject id
     file_content = re.sub(subj_regex, f"sub-{subject_id}", file_content)            
