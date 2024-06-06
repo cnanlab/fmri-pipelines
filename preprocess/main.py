@@ -26,6 +26,8 @@ print("pipeline base dir:", PIPELINE_BASE_DIR)
 
 # base_design_fsf = input("Please enter the full path to the desired base design.fsf file:")
 # base_design_fsf = "/mnt/storage/SST/sub-NDARINVZT44Y065/ses-baselineYear1Arm1/func/test_based_off_ritesh.feat/design.fsf"
+
+# base design fsf that is modified for each subject
 base_design_fsf = opj(PREPROCESS_DIR, "base_design_ritesh.fsf")
     
 # base_subjects_dir = input("Please enter the base directory containing all of the subjects:")
@@ -35,6 +37,8 @@ BASE_SUBJECTS_DIR = "/mnt/storage/SST/"
 # extract 'sub-' prefix from 'sub-{subj_id}'
 # subject_id_list = [re.sub(r'^sub-', '', dir_name) for dir_name in subject_directory_names]
 # Only for test subjects right now
+
+# The subject ids that are used within the preprocessing pipeline
 subject_id_list = []
 
 original_fifty_subjects_path = opj(PIPELINE_BASE_DIR, "subjects", "subject_same_mri.txt")
@@ -90,7 +94,7 @@ TR = 0.8
 print("TR:", TR)
 
 # Smoothing widths used during preprocessing
-fwhm_list = [5]
+# fwhm_list = [5]
 run_list = [1, 2]
 print("run list", run_list)
 task_list = ["sst"]
@@ -102,6 +106,7 @@ print("session list", session_list)
 experiment_dir = BASE_SUBJECTS_DIR
 # datasink_dir = opj(PREPROCESS_DIR, "datasink")
 
+# output directory path
 datasink_dir_base = "/mnt/storage/daniel/feat-preprocess-datasink"
 
 if "--name" in os.sys.argv:
@@ -109,7 +114,7 @@ if "--name" in os.sys.argv:
     datasink_dir = f"{datasink_dir_base}/{name}"
 else:
     date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-    datasink_dir = f"{datasink_dir_base}/{date_string}"
+    datasink_dir = f"{datasink_dir_base}/{date_string}" 
 # datasink_dir = f"/mnt/storage/daniel/feat-preprocess-datasink/{date_string}"
 
 
