@@ -95,8 +95,7 @@ def get_all_zfstat_paths_from_feat_datasink(feat_datasink: str, verbose: bool = 
                 
     return zfstat_paths
 
-
-def get_all_zfstat_paths_and_affine_files_from_feat_datasink(feat_datasink: str, verbose: bool = False) -> list:
+def get_all_zfstat_paths_and_affine_files_from_feat_datasink(feat_datasink: str, verbose: bool = False, feat_reg_type: str = "both") -> list:
     """
     Returns all the zfstat paths and affine files from the feat datasink (directory with all FEAT runs).
     """
@@ -106,9 +105,17 @@ def get_all_zfstat_paths_and_affine_files_from_feat_datasink(feat_datasink: str,
     affine_files = []
     
     for feat_dir_name in os.listdir(feat_datasink):
-        # skip linear FEAT runs (LN)
-        if "LN" in feat_dir_name:                        
+        
+        linear_feat = "LN" in feat_dir_name
+        
+        # skip linear FEAT runs (LN) if we wonly want nonlinear
+        if feat_reg_type == "nonlinear" and linear_feat:
             continue
+        
+        # skip nonlinear FEAT runs (NL) if we only want linear
+        if feat_reg_type == "linear" and not linear_feat:
+            continue
+        
         
         for contrast_id in range(1, 7):
             zfstat_path = os.path.join(feat_datasink, feat_dir_name, "stats", f"zfstat{contrast_id}.nii.gz")
@@ -335,9 +342,9 @@ def make_csv_node_func(flattened: list):
     import pandas as pd
     import os
         
-    # omit zfstat path
-    for dict in flattened:
-        del dict["zfstat_path"]
+    # # omit zfstat path
+    # for dict in flattened:
+    #     del dict["zfstat_path"]
         
     # create dataframe
     df = pd.DataFrame(flattened)

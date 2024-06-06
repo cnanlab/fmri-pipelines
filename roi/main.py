@@ -62,12 +62,16 @@ if __name__ == "__main__":
     print(f"mask file path: {constants.MASK_FILE_PATH}")
     print(f"roi_extract_overwrite: {roi_extract_overwrite}")    
     
+    # run with only a few paths
     is_test_run = "--test" in os.sys.argv        
     
+    # force running FNIRT registration
     is_force_run_fnirt = "--force-run-fnirt" in os.sys.argv     
     
+    # force running FLIRT registration
     is_force_run = "--force-run" in os.sys.argv   
     
+    # do not average the ROIs, keep x,y,z values for each voxel
     is_no_avg = "--no-avg" in os.sys.argv      
     roi_extract_all_node.inputs.no_avg = is_no_avg        
     print(f"is_no_avg: {is_no_avg}")
@@ -76,6 +80,7 @@ if __name__ == "__main__":
     force_run_iterables = []
     mni_template_iterables = []
     
+    # "--flirt" required for FLIRT registration
     if "--flirt" in os.sys.argv:
         nonlinear_iterables = [False]
         force_run_iterables = [is_force_run]
@@ -84,6 +89,11 @@ if __name__ == "__main__":
     registration_node.iterables = [("nonlinear", nonlinear_iterables), 
                                    ("force_run", force_run_iterables), 
                                    ("mni_template", mni_template_iterables)]
+    
+    if "--fnirt" in os.sys.argv:
+        nonlinear_iterables.append(True)
+        force_run_iterables.append(is_force_run_fnirt)
+        mni_template_iterables.append(constants.MNI_TEMPLATE_SKULL)
     
     for i, is_nonlinear in enumerate(nonlinear_iterables):
         name = "FNIRT" if is_nonlinear else "FLIRT"
@@ -94,7 +104,7 @@ if __name__ == "__main__":
         print(f"mni_template: {mni_template_iterables[i]}")
         print()
     
-    # set working dir and datasink base directory
+    # set working dir and datasink base directory, pulled from constants.py for non-tests
     workingdir = constants.WORKING_DIR if not is_test_run else opj(constants.ROI_BASE_DIR, "testworkingdir")
     datasink.inputs.base_directory = constants.ROI_DATASINK if not is_test_run else opj(constants.ROI_BASE_DIR, "testdatasink")
         
@@ -105,8 +115,12 @@ if __name__ == "__main__":
     
     roi_extract_workflow = Workflow(name="roi_extract_workflow", base_dir=workingdir)
     
+    feat_reg_type = "both"
+    
+    print(f"feat_reg_type: {feat_reg_type}")
+    
     # get zfstat paths and affine files
-    zfstat_paths, affine_files = utils.get_all_zfstat_paths_and_affine_files_from_feat_datasink(constants.INPUT_FEAT_DATASINK, )
+    zfstat_paths, affine_files = utils.get_all_zfstat_paths_and_affine_files_from_feat_datasink(constants.INPUT_FEAT_DATASINK, feat_reg_type=feat_reg_type)
             
     # check how many zfstat paths were found
     print()
@@ -116,7 +130,7 @@ if __name__ == "__main__":
     print(f"Sample affine files: {affine_files[:2]}")
     total_num_feat_dirs = len(os.listdir(constants.INPUT_FEAT_DATASINK))
     print(f"Total number of NL FEAT directories: {total_num_feat_dirs}")
-    print(f"Missing zfstat paths: {total_num_feat_dirs * 6 - len(zfstat_paths)}")
+    print(f"Missing zfstat paths: {total_num_feat_dirs * 6 - len(zfstat_paths)}/{total_num_feat_dirs * 6} ({(total_num_feat_dirs * 6 - len(zfstat_paths)) / (total_num_feat_dirs * 6) * 100}%)")
     
     ################################################################
     # For testing, use only first few zfstat paths and affine files
