@@ -74,7 +74,7 @@ with open(all_subjects_path, "r") as file:
             if n_added >= 150:
                 break
 
-# subject_id_list = subject_id_list[:2]
+subject_id_list = subject_id_list[:1]
 
 print("subject id list", subject_id_list)
 print("total number of unique subjects:", len(subject_id_list))
@@ -85,8 +85,7 @@ print("total number of unique subjects:", len(subject_id_list))
 
 # TR of functional images
 # task_json_path = '/mnt/Storage/temp1/sub-NDARINV00BD7VDC/ses-baselineYear1Arm1/func/sub-NDARINV00BD7VDC_ses-baselineYear1Arm1_task-sst_run-01_bold.json'
-# with open(task_json_path, 'rt') as fp:
-#     task_info = json.load(fp)
+# with open(task_json_path, 'rt') as fp:#     task_info = json.load(fp)
 # TR = task_info['RepetitionTime']
 
 # TODO: remove hardcoding
