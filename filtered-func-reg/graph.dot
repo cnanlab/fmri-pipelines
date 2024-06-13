@@ -1,0 +1,10 @@
+digraph filtered_func_reg_workflow{
+  label="filtered_func_reg_workflow";
+  filtered_func_reg_workflow_itersource[label="itersource (utility)", shape=box3d,style=filled, color=black, colorscheme=greys7 fillcolor=2];
+  filtered_func_reg_workflow_registration_node[label="registration_node (utility)", style=filled, fillcolor="#FFFFC8"];
+  filtered_func_reg_workflow_datasink[label="datasink (io)", style=filled, fillcolor="#FFFFC8"];
+  filtered_func_reg_workflow_itersource -> filtered_func_reg_workflow_registration_node;
+  filtered_func_reg_workflow_itersource -> filtered_func_reg_workflow_registration_node;
+  filtered_func_reg_workflow_registration_node -> filtered_func_reg_workflow_datasink;
+  filtered_func_reg_workflow_registration_node -> filtered_func_reg_workflow_datasink;
+}

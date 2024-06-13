@@ -193,7 +193,7 @@ if __name__ == "__main__":
     
     # connect all nodes
     roi_extract_workflow.connect([(itersource, registration_node, [("affine_file", "affine_file"),
-                                                                    ("zfstat_path", "in_file"),                                                                    ]),                                                                        
+                                                                    ("zfstat_path", "in_file"),]),                                                                        
                                         (registration_node, roi_extract_all_node, [("out_file", "input_nifti")]),
                                         (registration_node, add_metadata_node, [("nonlinear", "is_nonlinear")]),                                        
                                     (itersource, add_metadata_node, [("subject_id", "subject_id"),
