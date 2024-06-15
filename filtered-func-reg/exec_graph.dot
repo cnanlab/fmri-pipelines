@@ -1,0 +1,5 @@
+strict digraph  {
+"registration_node (utility)";
+"datasink (io)";
+"registration_node (utility)" -> "datasink (io)";
+}
