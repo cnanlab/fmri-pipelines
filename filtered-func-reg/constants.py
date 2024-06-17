@@ -12,3 +12,5 @@ MNI_TEMPLATE_SKULL = '/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz' # for F
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 WORKING_DIR = os.path.join(BASE_DIR, "workingdir")
+
+MASK_PATH = os.path.join(BASE_DIR, "grantmask_labeled.nii")

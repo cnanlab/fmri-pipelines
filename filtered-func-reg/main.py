@@ -1,6 +1,6 @@
 import argparse
 from logging import log
-from nipype import Node, Workflow, Function, IdentityInterface, DataSink
+from nipype import Node, Workflow, Function, IdentityInterface, DataSink, JoinNode, MapNode
 import os
 import time
 import utils
@@ -9,10 +9,19 @@ import constants
 ##############
 # Nodes
 ##############
-itersource = Node(interface=IdentityInterface(fields=["filtered_func", "affine_file"]), name="itersource")
+itersource = Node(interface=IdentityInterface(fields=["filtered_func", "affine_file", "ev_files"]), name="itersource")
 itersource.synchronize = True # do not do all permutations
 
 registration_node = Node(interface=Function(input_names=["nonlinear", "in_file", "affine_file", "mni_template", "force_run", "no_affine"], output_names=["out_file", "nonlinear"], function=utils.registration_node_func), name="registration_node")                  
+
+# join_node = JoinNode(interface=Function(input_names=["in_reg_files"], function=utils.registration_node_func), name="join_node", joinsource="itersource", joinfield=["in_reg_files"])
+
+roi_extract_timeseries = Node(interface=Function(input_names=["input_nifti_path", "mask_file_path"], output_names=["roi_dicts"], function=utils.roi_extract_all_timeseries_node_func), name="roi_extract_timeseries")
+roi_extract_timeseries.inputs.mask_file_path = constants.MASK_PATH
+
+join_node = JoinNode(interface=Function(input_names=["joined_dicts"], output_names=["flattened"], function=utils.join_main), name="join_node", joinsource="itersource", joinfield=["joined_dicts"])
+
+csv_node = Node(interface=Function(input_names=["flattened"], output_names=["save_path"], function=utils.make_csv_node_func), name="csv_node")
 
 datasink = Node(interface=DataSink(), name="datasink")   
 datasink.inputs.base_directory = os.path.join(constants.BASE_DIR, "filtered_func_reg_datasink")
@@ -38,10 +47,12 @@ if __name__ == "__main__":
     
     print("Feat base dir:", feat_base_dir)
     
-    filtered_func_paths, affine_files = utils.get_all_filtered_func_paths_and_affine_files(feat_base_dir)            
+    filtered_func_paths, affine_files, ev_groups = utils.get_all_paths(feat_base_dir)            
     
-    print(f"Filtered func paths sample (5): {filtered_func_paths[:5]}")
-    print(f"Affine files sample (2): {affine_files[:2]}")
+    print()
+    print(f"Filtered func paths sample (5): {filtered_func_paths[:5]}\n")
+    print(f"Affine files sample (2): {affine_files[:2]}\n")
+    print(f"Ev groups sample (1): {ev_groups[:1]}\n")
     
     print(f"There are {len(filtered_func_paths)} filtered_func paths and {len(affine_files)} affine files")
     assert(len(filtered_func_paths) == len(affine_files))
@@ -61,19 +72,26 @@ if __name__ == "__main__":
     registration_node.inputs.force_run = args.force_run or False        
     registration_node.inputs.no_affine = args.no_affine or False    
     
+    print()
     print(f"Registration node base inputs:\n{"-" * 20}")    
     print(f"Nonlinear: {registration_node.inputs.nonlinear}")
     print(f"MNI template: {registration_node.inputs.mni_template}")
     print(f"Force run: {registration_node.inputs.force_run}")
-    print(f"No affine: {registration_node.inputs.no_affine}") 
+    print(f"No affine: {registration_node.inputs.no_affine}")     
+    print(f"Mask path: {roi_extract_timeseries.inputs.mask_file_path}")
+    print()
     
     workflow = Workflow(name="filtered_func_reg_workflow", base_dir=constants.WORKING_DIR)
     
     # connect the nodes
     workflow.connect(itersource, "filtered_func", registration_node, "in_file")
     workflow.connect(itersource, "affine_file", registration_node, "affine_file")
-    # workflow.connect(registration_node, "out_file", datasink, "registered_files")
-    # workflow.connect(registration_node, "nonlinear", datasink, "nonlinear")
+    # workflow.connect(registration_node, "out_file", datasink, "reg.@out_file")
+    # workflow.connect(registration_node, "nonlinear", datasink, "reg.@nonlinear")
+    workflow.connect(registration_node, "out_file", roi_extract_timeseries, "input_nifti_path")
+    workflow.connect(roi_extract_timeseries, "roi_dicts", join_node, "joined_dicts")
+    workflow.connect(join_node, "flattened", csv_node, "flattened")
+    workflow.connect(csv_node, "save_path", datasink, "csv.@save_path")
         
     crash_dir = os.path.join(constants.WORKING_DIR, "crash")
     
